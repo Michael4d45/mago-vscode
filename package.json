@@ -2,13 +2,21 @@
   "name": "mago-vscode",
   "displayName": "Mago",
   "description": "Mago integration for VSCode",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "publisher": "Michael4d45",
   "license": "MIT",
-  "repository": "https://github.com/michael4d45/mago-vscode",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/michael4d45/mago-vscode.git"
+  },
+  "homepage": "https://github.com/michael4d45/mago-vscode#readme",
+  "bugs": {
+    "url": "https://github.com/michael4d45/mago-vscode/issues"
+  },
   "engines": {
     "vscode": "^1.90.0"
   },
+  "icon": "icon.png",
   "categories": [
     "Linters",
     "Programming Languages"
@@ -70,6 +78,19 @@
           "type": "boolean",
           "default": true,
           "description": "Run Mago automatically when PHP files are saved"
+        },
+        "mago.runOnSaveScope": {
+          "type": "string",
+          "enum": [
+            "file",
+            "project"
+          ],
+          "enumDescriptions": [
+            "Run linter/analyzer on the saved file only",
+            "Run linter/analyzer on the whole project"
+          ],
+          "default": "project",
+          "description": "What to run the linter/analyzer on when saving: single file or whole project"
         },
         "mago.scanOnOpen": {
           "type": "boolean",
@@ -272,3 +293,5 @@
     "typescript": "^5.0.0"
   }
 }
+
+

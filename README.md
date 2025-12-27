@@ -2,6 +2,10 @@
 
 A powerful VSCode extension that seamlessly integrates [Mago](https://github.com/carthage-software/mago)'s advanced linting and static analysis tools into your PHP development workflow. Get real-time feedback, automatic fixes, and professional code formatting—all without leaving your editor.
 
+![Timeline comparison of intelephense, mago, and phpstan](Timeline.gif)
+
+(Mago is running on a single file for lint and analyze, the auto save is on a 1000ms delay. I'm sure the VS Code extension setup has some overhead, see [here](https://mago.carthage.software/benchmarks) for their benchmarks.)
+
 ## Why Use This Extension?
 
 - **Catch Bugs Before They Ship**: Real-time static analysis finds potential issues as you code
@@ -13,7 +17,7 @@ A powerful VSCode extension that seamlessly integrates [Mago](https://github.com
 
 ## Features
 
-- **Automatic Scanning**: Automatically scans your project when you open it and checks files when you save them
+- **Automatic Scanning**: Automatically scans your project when you open it and checks files when you save them (configurable to scan single file or whole project)
 - **Inline Diagnostics**: Shows errors and warnings directly in your code with helpful information and code hints
 - **Quick Fixes**: One-click fixes for many issues—apply Mago's suggested fixes, suppress warnings with `@mago-expect`, or add format ignore directives
 - **Format Ignore Directives**: Right-click on selected code to easily exclude it from formatting with `@mago-format-ignore-next`, `@mago-format-ignore-start/end`, or file-level `@mago-format-ignore`
@@ -27,25 +31,11 @@ A powerful VSCode extension that seamlessly integrates [Mago](https://github.com
 
 ## Requirements
 
-- **VSCode**: Version 1.90.0 or later
 - **Mago**: The Mago binary must be installed. The extension will automatically find it if:
   - It's in your system PATH, or
   - It's located at `vendor/bin/mago` in your workspace (common for Composer projects)
   - You can also configure a custom path via settings
 - **PHP Project**: Works with any PHP project containing `.php` files
-
-## Installation
-
-1. Open VSCode
-2. Go to the Extensions view (Ctrl+Shift+X / Cmd+Shift+X)
-3. Search for "Mago"
-4. Click Install
-
-Alternatively, you can install it from the command line:
-
-```bash
-code --install-extension Michael4d45.mago-vscode
-```
 
 ## Quick Start
 
@@ -101,6 +91,7 @@ Open your settings and search for "Mago" to see all available options. Here are 
   "mago.enabled": true,
   "mago.binPath": "mago",
   "mago.runOnSave": true,
+  "mago.runOnSaveScope": "project",
   "mago.scanOnOpen": true,
   "mago.minimumReportLevel": "error"
 }
@@ -197,6 +188,28 @@ You can enable or disable linting and static analysis independently:
 
 This is useful if you only want to use one feature or want to run them separately.
 
+#### Run on Save: Single File vs Whole Project
+
+By default, Mago runs on the whole project when you save. You can configure it to scan only the saved file instead:
+
+```json
+{
+  "mago.runOnSave": true,
+  "mago.runOnSaveScope": "project"  // Run on whole project (default)
+}
+```
+
+Or to scan only the saved file:
+
+```json
+{
+  "mago.runOnSave": true,
+  "mago.runOnSaveScope": "file"     // Run on saved file only
+}
+```
+
+**Note**: Running on the whole project on save may be slower, especially for large projects, but provides comprehensive feedback. Use `"file"` for faster feedback on the current file only.
+
 ### All Configuration Options
 
 | Setting | Type | Default | Description |
@@ -209,6 +222,7 @@ This is useful if you only want to use one feature or want to run them separatel
 | `mago.enableLint` | boolean | `true` | Enable linting (can be disabled independently from analysis) |
 | `mago.enableAnalyze` | boolean | `true` | Enable static analysis (can be disabled independently from linting) |
 | `mago.runOnSave` | boolean | `true` | Run Mago automatically when PHP files are saved |
+| `mago.runOnSaveScope` | string | `"project"` | What to run the linter/analyzer on when saving: `"file"` (single file) or `"project"` (whole project) |
 | `mago.scanOnOpen` | boolean | `true` | Scan project automatically when workspace opens |
 | `mago.phpVersion` | string | `null` | PHP version override |
 | `mago.threads` | number | `null` | Number of threads to use |

@@ -233,7 +233,13 @@ export function activate(context: ExtensionContext) {
     context.subscriptions.push(
       workspace.onDidSaveTextDocument(async (document: TextDocument) => {
         if (document.languageId === 'php' && document.uri.scheme === 'file') {
-          await scanFile(document);
+          const saveConfig = workspace.getConfiguration('mago');
+          const runOnSaveScope = saveConfig.get<string>('runOnSaveScope', 'project');
+          if (runOnSaveScope === 'project') {
+            await scanProject();
+          } else {
+            await scanFile(document);
+          }
         }
       })
     );
