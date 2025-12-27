@@ -1,0 +1,230 @@
+{
+  "name": "mago-vscode",
+  "displayName": "Mago",
+  "description": "Mago integration for VSCode",
+  "version": "0.1.1",
+  "publisher": "mago",
+  "license": "MIT",
+  "repository": "https://github.com/michael4d45/mago-vscode",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Linters",
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:php",
+    "onCommand:mago.scanFile",
+    "onCommand:mago.scanProject",
+    "onCommand:mago.clearErrors",
+    "onCommand:mago.generateLintBaseline",
+    "onCommand:mago.generateAnalysisBaseline",
+    "onCommand:mago.formatFile",
+    "onCommand:mago.formatDocument",
+    "onCommand:mago.formatProject",
+    "onCommand:mago.formatStaged"
+  ],
+  "main": "./out/client/src/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Mago",
+      "properties": {
+        "mago.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Mago extension"
+        },
+        "mago.binPath": {
+          "type": "string",
+          "default": "mago",
+          "description": "Path to mago binary (e.g., ${workspaceFolder}/vendor/bin/mago)"
+        },
+        "mago.binCommand": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Command array for running mago (e.g., [\"docker\", \"exec\", \"mago\"])"
+        },
+        "mago.configFile": {
+          "type": "string",
+          "default": "mago.toml",
+          "description": "Path to mago.toml configuration file"
+        },
+        "mago.workspace": {
+          "type": "string",
+          "description": "Workspace root directory"
+        },
+        "mago.enableLint": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable linting"
+        },
+        "mago.enableAnalyze": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable static analysis"
+        },
+        "mago.runOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run Mago automatically when PHP files are saved"
+        },
+        "mago.scanOnOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "Scan project automatically when workspace opens"
+        },
+        "mago.phpVersion": {
+          "type": "string",
+          "description": "PHP version override"
+        },
+        "mago.threads": {
+          "type": "number",
+          "description": "Number of threads"
+        },
+        "mago.minimumReportLevel": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "note",
+            "help"
+          ],
+          "default": "error",
+          "description": "Minimum severity to report"
+        },
+        "mago.timeout": {
+          "type": "number",
+          "default": 30000,
+          "description": "Timeout for non-watch operations (ms)"
+        },
+        "mago.useBaselines": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use baseline files to ignore existing issues. When enabled, only new issues will be reported."
+        },
+        "mago.lintBaseline": {
+          "type": "string",
+          "default": "lint-baseline.toml",
+          "description": "Path to lint baseline file (e.g., lint-baseline.toml or ${workspaceFolder}/lint-baseline.toml)"
+        },
+        "mago.analysisBaseline": {
+          "type": "string",
+          "default": "analysis-baseline.toml",
+          "description": "Path to analysis baseline file (e.g., analysis-baseline.toml or ${workspaceFolder}/analysis-baseline.toml)"
+        },
+        "mago.enableFormat": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable formatting"
+        },
+        "mago.formatOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Format PHP files automatically when saved"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "mago.scanFile",
+        "title": "Scan File",
+        "category": "Mago"
+      },
+      {
+        "command": "mago.scanProject",
+        "title": "Scan Project",
+        "category": "Mago"
+      },
+      {
+        "command": "mago.clearErrors",
+        "title": "Clear Errors",
+        "category": "Mago"
+      },
+      {
+        "command": "mago.generateLintBaseline",
+        "title": "Generate Lint Baseline",
+        "category": "Mago"
+      },
+      {
+        "command": "mago.generateAnalysisBaseline",
+        "title": "Generate Analysis Baseline",
+        "category": "Mago"
+      },
+      {
+        "command": "mago.formatFile",
+        "title": "Format File",
+        "category": "Mago"
+      },
+      {
+        "command": "mago.formatDocument",
+        "title": "Format Document",
+        "category": "Mago"
+      },
+      {
+        "command": "mago.formatProject",
+        "title": "Format Project",
+        "category": "Mago"
+      },
+      {
+        "command": "mago.formatStaged",
+        "title": "Format Staged Files",
+        "category": "Mago"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "mago.scanFile",
+          "when": "resourceExtname == .php"
+        },
+        {
+          "command": "mago.scanProject"
+        },
+        {
+          "command": "mago.clearErrors"
+        },
+        {
+          "command": "mago.generateLintBaseline"
+        },
+        {
+          "command": "mago.generateAnalysisBaseline"
+        },
+        {
+          "command": "mago.formatFile",
+          "when": "resourceExtname == .php"
+        },
+        {
+          "command": "mago.formatDocument",
+          "when": "resourceExtname == .php"
+        },
+        {
+          "command": "mago.formatProject"
+        },
+        {
+          "command": "mago.formatStaged"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -b && npm run resolve-paths",
+    "resolve-paths": "tsc-alias -p tsconfig.json",
+    "watch": "tsc -b -w",
+    "type-check": "tsc --noEmit",
+    "types": "tsc --noEmit",
+    "pretest": "npm run compile",
+    "test": "node ./client/out/test/runTest.js",
+    "package": "vsce package"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.90.0",
+    "tsc-alias": "^1.8.16",
+    "typescript": "^5.0.0"
+  }
+}

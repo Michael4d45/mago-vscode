@@ -1,0 +1,6 @@
+**/*
+!out/**
+!package.json
+!README.md
+!LICENSE
+!node_modules/**

@@ -1,0 +1,1 @@
+{"version":3,"file":"defs.js","sourceRoot":"","sources":["defs.ts"],"names":[],"mappings":";;;AAAa,QAAA,QAAQ,GAAG;IACtB,SAAS,EAAE,eAAe;IAC1B,YAAY,EAAE,kBAAkB;IAChC,YAAY,EAAE,kBAAkB;IAChC,sBAAsB,EAAE,2BAA2B;IACnD,0BAA0B,EAAE,+BAA+B;IAC3D,WAAW,EAAE,iBAAiB;IAC9B,eAAe,EAAE,qBAAqB;IACtC,cAAc,EAAE,oBAAoB;IACpC,aAAa,EAAE,mBAAmB;CAC1B,CAAC"}
