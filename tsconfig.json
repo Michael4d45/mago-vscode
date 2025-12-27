@@ -20,12 +20,16 @@
   },
   "include": [
     "client/src/**/*",
-    "server/src/**/*",
     "shared/**/*"
   ],
   "exclude": [
     "node_modules",
     "out",
-    "**/*.test.ts"
+    "**/*.test.ts",
+    "client/src/lib/**/*",
+    "client/src/notificationReceivers/**/*",
+    "client/src/notificationSenders/**/*",
+    "server/**/*",
+    "shared/types.ts"
   ]
 }

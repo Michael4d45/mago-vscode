@@ -2,15 +2,18 @@
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "outDir": "./out",
-    "rootDir": "./src",
     "composite": true
   },
   "include": [
-    "src/**/*"
+    "src/extension.ts",
+    "../shared/commands/**/*"
   ],
   "exclude": [
     "node_modules",
-    "out"
+    "out",
+    "src/lib/**/*",
+    "src/notificationReceivers/**/*",
+    "src/notificationSenders/**/*"
   ],
   "references": [
     {

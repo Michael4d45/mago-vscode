@@ -1,153 +1,403 @@
 # Mago VSCode Extension
 
-A VSCode extension that integrates Mago's `lint` and `analyze` commands, providing real-time diagnostics, error highlighting, and hover information for PHP code.
+A powerful VSCode extension that seamlessly integrates [Mago](https://github.com/carthage-software/mago)'s advanced linting and static analysis tools into your PHP development workflow. Get real-time feedback, automatic fixes, and professional code formatting—all without leaving your editor.
+
+## Why Use This Extension?
+
+- **Catch Bugs Before They Ship**: Real-time static analysis finds potential issues as you code
+- **Fix Issues Instantly**: One-click quick fixes automatically resolve many common problems
+- **Professional Code Quality**: Consistent formatting and style enforcement across your entire project, with fine-grained control via format ignore directives
+- **Zero Configuration**: Works out of the box—auto-discovers Mago in your `vendor/bin` directory
+- **Seamless Integration**: Inline diagnostics, status bar updates, and native VSCode commands
+- **Flexible Workflow**: Enable/disable features independently, use baselines for legacy code, and customize everything
 
 ## Features
 
-- **Automatic Scanning**: Scans project on workspace open and files on save
-- **Inline Diagnostics**: Shows errors and warnings directly in the editor
+- **Automatic Scanning**: Automatically scans your project when you open it and checks files when you save them
+- **Inline Diagnostics**: Shows errors and warnings directly in your code with helpful information and code hints
+- **Quick Fixes**: One-click fixes for many issues—apply Mago's suggested fixes, suppress warnings with `@mago-expect`, or add format ignore directives
+- **Format Ignore Directives**: Right-click on selected code to easily exclude it from formatting with `@mago-format-ignore-next`, `@mago-format-ignore-start/end`, or file-level `@mago-format-ignore`
 - **Status Bar Integration**: Displays analysis status in VSCode's status bar
-- **Command Palette**: Provides commands for manual scanning, formatting, and baseline generation
-- **Configuration Support**: Supports `mago.toml` configuration files
-- **Baseline Support**: Generate and use baseline files to ignore existing issues
-- **Code Formatting**: Format PHP files on save or via commands
-- **Lint & Analyze**: Supports both linting and static analysis with configurable minimum severity levels
+- **Code Formatting**: Format PHP files on save or via commands (can be set as default formatter)
+- **Separate Lint and Analysis**: Enable or disable linting and static analysis independently
+- **Baseline Support**: Generate baseline files to ignore existing issues and focus on new problems
+- **Auto-Discovery**: Automatically finds Mago binary in `vendor/bin/mago` if not in PATH
+- **Configurable**: Supports `mago.toml` configuration files and extensive VSCode settings
+- **Workspace Variables**: Use `${workspaceFolder}` and `${env:VARNAME}` in configuration paths
 
 ## Requirements
 
-- VSCode 1.90.0 or later
-- Mago binary installed and available in PATH
-- PHP project with `.php` files
+- **VSCode**: Version 1.90.0 or later
+- **Mago**: The Mago binary must be installed. The extension will automatically find it if:
+  - It's in your system PATH, or
+  - It's located at `vendor/bin/mago` in your workspace (common for Composer projects)
+  - You can also configure a custom path via settings
+- **PHP Project**: Works with any PHP project containing `.php` files
 
 ## Installation
 
-1. Clone this repository
-2. Run `npm install` in the root directory
-3. Run `npm run compile` to build the extension
-4. Open the project in VSCode
-5. Press `F5` to launch the extension development host
+1. Open VSCode
+2. Go to the Extensions view (Ctrl+Shift+X / Cmd+Shift+X)
+3. Search for "Mago"
+4. Click Install
+
+Alternatively, you can install it from the command line:
+
+```bash
+code --install-extension Michael4d45.mago-vscode
+```
+
+## Quick Start
+
+Once installed, the extension will automatically:
+
+- Scan your project when you open a workspace
+- Check PHP files when you save them
+- Display errors and warnings inline in your editor with helpful information
+
+**No configuration needed!** The extension automatically discovers Mago if it's:
+- In your system PATH, or
+- Located at `vendor/bin/mago` in your workspace (common for Composer projects)
+
+### Understanding Diagnostics
+
+When Mago finds issues in your code, they appear as:
+- **Error markers** (red squiggles) for errors
+- **Warning markers** (yellow squiggles) for warnings
+- **Information markers** (blue squiggles) for notes
+- **Hint markers** (gray squiggles) for help messages
+
+Hovering over an issue shows the full message, error code, and any help text provided by Mago. You can also see all issues in the Problems panel (View → Problems).
+
+### Quick Fixes
+
+Many issues can be fixed instantly with VSCode's Quick Fix feature:
+
+1. **Hover over an issue** or place your cursor on it
+2. **Click the lightbulb icon** (💡) or press `Ctrl+.` (Cmd+. on Mac)
+3. **Choose from available fixes**:
+   - **Apply fix** - Automatically applies Mago's suggested code changes (when available)
+   - **Suppress with @mago-expect** - Adds a comment to expect this specific error code (with category prefix)
+
+**For format ignore directives**, select the code you want to exclude from formatting, then:
+- **Right-click** and choose from the context menu, or
+- Use Quick Fix (`Ctrl+.` / `Cmd+.`) to add:
+  - **@mago-format-ignore-next** - Ignores formatting for the next statement
+  - **@mago-format-ignore-start/end** - Ignores formatting for a region
+  - **@mago-format-ignore** - Ignores formatting for the entire file
+
+Quick fixes and context menu actions make it easy to resolve issues and control formatting without manually editing code or searching for the right syntax.
 
 ## Configuration
 
-The extension can be configured through VSCode settings (`settings.json`):
+You can configure the extension through VSCode's settings UI (File → Preferences → Settings) or by editing your `settings.json` file.
+
+### Basic Settings
+
+Open your settings and search for "Mago" to see all available options. Here are the most commonly used settings:
 
 ```json
 {
   "mago.enabled": true,
   "mago.binPath": "mago",
-  "mago.binCommand": null,
-  "mago.configFile": "mago.toml",
-  "mago.workspace": null,
-  "mago.enableLint": true,
-  "mago.enableAnalyze": true,
   "mago.runOnSave": true,
   "mago.scanOnOpen": true,
-  "mago.phpVersion": null,
-  "mago.threads": null,
-  "mago.minimumReportLevel": "error",
-  "mago.timeout": 30000,
-  "mago.useBaselines": false,
-  "mago.lintBaseline": "lint-baseline.toml",
-  "mago.analysisBaseline": "analysis-baseline.toml",
-  "mago.enableFormat": true,
-  "mago.formatOnSave": false
+  "mago.minimumReportLevel": "error"
 }
 ```
 
-### Configuration Options
+### Common Configuration Scenarios
 
-- `mago.enabled`: Enable/disable the Mago extension (default: `true`)
-- `mago.binPath`: Path to the mago binary (default: `mago`)
-- `mago.binCommand`: Custom command array for running mago (e.g., `["docker", "exec", "mago"]`)
-- `mago.configFile`: Path to `mago.toml` configuration file (default: `mago.toml`)
-- `mago.workspace`: Workspace root directory
-- `mago.enableLint`: Enable linting (default: `true`)
-- `mago.enableAnalyze`: Enable static analysis (default: `true`)
-- `mago.runOnSave`: Run Mago automatically when PHP files are saved (default: `true`)
-- `mago.scanOnOpen`: Scan project automatically when workspace opens (default: `true`)
-- `mago.phpVersion`: PHP version override
-- `mago.threads`: Number of threads to use
-- `mago.minimumReportLevel`: Minimum severity level to report (default: `error`)
-- `mago.timeout`: Timeout for non-watch operations in milliseconds (default: `30000`)
-- `mago.useBaselines`: Use baseline files to ignore existing issues (default: `false`)
-- `mago.lintBaseline`: Path to lint baseline file (default: `lint-baseline.toml`)
-- `mago.analysisBaseline`: Path to analysis baseline file (default: `analysis-baseline.toml`)
-- `mago.enableFormat`: Enable formatting functionality (default: `true`)
-- `mago.formatOnSave`: Format PHP files automatically when saved (default: `false`)
+#### Using a Custom Mago Path
+
+**Note**: The extension automatically discovers Mago in `vendor/bin/mago`, so you typically don't need to configure this unless Mago is in a non-standard location.
+
+If Mago is not in your PATH or `vendor/bin/mago`, specify the full path:
+
+```json
+{
+  "mago.binPath": "/usr/local/bin/mago"
+}
+```
+
+Or if it's in your project's vendor directory (using workspace variables):
+
+```json
+{
+  "mago.binPath": "${workspaceFolder}/vendor/bin/mago"
+}
+```
+
+**Note**: The extension supports VSCode workspace variables:
+- `${workspaceFolder}` or `${workspaceRoot}` - The workspace root directory
+- `${env:VARNAME}` - Environment variables (e.g., `${env:HOME}`)
+
+#### Running Mago via Docker
+
+If you need to run Mago inside a Docker container:
+
+```json
+{
+  "mago.binCommand": ["docker", "exec", "mago-container", "mago"]
+}
+```
+
+#### Using Baseline Files
+
+To ignore existing issues and only show new problems:
+
+1. Generate baseline files using the commands (see Commands section below)
+2. Enable baseline usage:
+
+```json
+{
+  "mago.useBaselines": true,
+  "mago.lintBaseline": "lint-baseline.toml",
+  "mago.analysisBaseline": "analysis-baseline.toml"
+}
+```
+
+#### Format on Save
+
+To automatically format PHP files when you save them:
+
+```json
+{
+  "mago.formatOnSave": true
+}
+```
+
+#### Setting Mago as Default Formatter
+
+To use Mago as the default formatter for PHP files:
+
+1. Open VSCode settings
+2. Search for "default formatter"
+3. Set `Editor: Default Formatter` to "Mago" (or use the `Format Document` command)
+4. Alternatively, add to your `settings.json`:
+
+```json
+{
+  "[php]": {
+    "editor.defaultFormatter": "Michael4d45.mago-vscode"
+  }
+}
+```
+
+#### Enabling/Disabling Lint and Analysis Separately
+
+You can enable or disable linting and static analysis independently:
+
+```json
+{
+  "mago.enableLint": true,      // Enable linting (default: true)
+  "mago.enableAnalyze": false   // Disable static analysis (default: true)
+}
+```
+
+This is useful if you only want to use one feature or want to run them separately.
+
+### All Configuration Options
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `mago.enabled` | boolean | `true` | Enable/disable the Mago extension |
+| `mago.binPath` | string | `"mago"` | Path to the mago binary (supports `${workspaceFolder}` and `${env:VARNAME}` variables) |
+| `mago.binCommand` | array | `null` | Custom command array for running mago (e.g., `["docker", "exec", "mago"]`) |
+| `mago.configFile` | string | `"mago.toml"` | Path to `mago.toml` configuration file (supports workspace variables) |
+| `mago.workspace` | string | `null` | Workspace root directory (usually auto-detected) |
+| `mago.enableLint` | boolean | `true` | Enable linting (can be disabled independently from analysis) |
+| `mago.enableAnalyze` | boolean | `true` | Enable static analysis (can be disabled independently from linting) |
+| `mago.runOnSave` | boolean | `true` | Run Mago automatically when PHP files are saved |
+| `mago.scanOnOpen` | boolean | `true` | Scan project automatically when workspace opens |
+| `mago.phpVersion` | string | `null` | PHP version override |
+| `mago.threads` | number | `null` | Number of threads to use |
+| `mago.minimumReportLevel` | string | `"error"` | Minimum severity level to report (`error`, `warning`, `note`, `help`) |
+| `mago.timeout` | number | `30000` | Timeout for operations in milliseconds |
+| `mago.useBaselines` | boolean | `false` | Use baseline files to ignore existing issues |
+| `mago.lintBaseline` | string | `"lint-baseline.toml"` | Path to lint baseline file (supports workspace variables) |
+| `mago.analysisBaseline` | string | `"analysis-baseline.toml"` | Path to analysis baseline file (supports workspace variables) |
+| `mago.enableFormat` | boolean | `true` | Enable formatting functionality |
+| `mago.formatOnSave` | boolean | `false` | Format PHP files automatically when saved |
 
 ## Commands
 
-The extension provides the following commands (accessible via Command Palette):
+Access these commands via the Command Palette (Ctrl+Shift+P / Cmd+Shift+P):
 
 ### Scanning Commands
-- `Mago: Scan File` - Scan the currently active PHP file
-- `Mago: Scan Project` - Scan the entire project
-- `Mago: Clear Errors` - Clear all diagnostics
+
+- **`Mago: Scan File`** - Scan the currently active PHP file
+- **`Mago: Scan Project`** - Scan the entire project
+- **`Mago: Clear Errors`** - Clear all diagnostics from the editor
 
 ### Baseline Commands
-- `Mago: Generate Lint Baseline` - Generate a baseline file for lint issues
-- `Mago: Generate Analysis Baseline` - Generate a baseline file for analysis issues
+
+- **`Mago: Generate Lint Baseline`** - Generate a baseline file for lint issues (saves existing issues so they won't be reported)
+- **`Mago: Generate Analysis Baseline`** - Generate a baseline file for analysis issues
 
 ### Formatting Commands
-- `Mago: Format File` - Format the currently active PHP file
-- `Mago: Format Document` - Format the current document (can be used as default formatter)
-- `Mago: Format Project` - Format all PHP files in the project
-- `Mago: Format Staged` - Format only staged git files
 
-## Architecture
+- **`Mago: Format File`** - Format the currently active PHP file
+- **`Mago: Format Document`** - Format the current document (can be set as default formatter via VSCode settings)
+- **`Mago: Format Project`** - Format all PHP files in the project
+- **`Mago: Format Staged Files`** - Format only files staged in git
 
-The extension runs Mago commands directly from the VSCode extension host:
+## Quick Fixes
 
-```
-┌────────────┐
-│   Client   │
-│  (VSCode)  │
-└────────────┘
-      │
-      │ spawns
-      │
-      ▼
-┌─────────────┐
-│    Mago     │
-│   (lint)    │
-└─────────────┘
-```
+The extension provides powerful quick fix capabilities that let you resolve issues with a single click:
 
-### Key Components
+### Applying Automatic Fixes
 
-- **Extension**: VSCode extension entry point, handles UI interactions and file events
-- **Process Runner**: Executes Mago commands and handles output
-- **Result Parser**: Parses JSON output from Mago commands
-- **Diagnostics Manager**: Handles diagnostics display and status updates
+When Mago provides suggested code changes for an issue, you can apply them instantly:
 
-## Development
+1. Hover over the issue or click on it
+2. Press `Ctrl+.` (Cmd+. on Mac) or click the lightbulb icon (💡)
+3. Select **"Apply fix: [issue description]"**
+4. The fix is automatically applied to your code
 
-### Building
+This is perfect for common issues like formatting problems, simple refactorings, or style violations that Mago can automatically correct.
 
-```bash
-npm run compile
-```
+### Suppressing Issues
 
-### Testing
+Sometimes you need to suppress a specific issue. The extension provides suppression via `@mago-expect`:
 
-```bash
-npm run test
+#### @mago-expect
+
+Expects a specific error code with category prefix, useful for documenting known issues. The format is `category:code` where category is either `lint` or `analysis`:
+
+```php
+// @mago-expect lint:unused-variable
+$unused = getValue(); // We expect this lint warning
+
+// @mago-expect analysis:missing-return-statement
+function incomplete() {
+    // We know this function doesn't return
+}
 ```
 
-### Debugging
+To add a suppression:
+1. Hover over the issue or click on it
+2. Press `Ctrl+.` (Cmd+. on Mac) or click the lightbulb icon (💡)
+3. Select **"Suppress with @mago-expect [category:code]"**
 
-1. Open the project in VSCode
-2. Press `F5` to start debugging
-3. A new VSCode window will open with the extension loaded
+The appropriate comment is automatically added above the line with the correct category and code.
 
-## Contributing
+### Format Ignore Directives
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Run `npm run compile` to ensure everything builds
-6. Submit a pull request
+When you need to prevent Mago from formatting specific parts of your code, you can use format ignore directives. These are especially useful for preserving custom formatting in arrays, function calls, or other code blocks.
+
+To add format ignore directives:
+1. **Select the code** you want to exclude from formatting (or right-click anywhere in a PHP file for file-level ignore)
+2. **Right-click** and choose from the context menu, or press `Ctrl+.` (Cmd+. on Mac) / click the lightbulb icon (💡)
+3. Choose from:
+   - **Add @mago-format-ignore-next** - Ignores formatting for the next statement (requires selection)
+   - **Add @mago-format-ignore-start/end** - Ignores formatting for a region (requires selection)
+   - **Add @mago-format-ignore (file-level)** - Ignores formatting for the entire file
+
+#### @mago-format-ignore-next
+
+Ignores formatting for the next statement:
+
+```php
+// @mago-format-ignore-next
+$array = [
+    'key1' => 'value1',
+    'key2' => 'value2',
+]; // This array won't be reformatted
+```
+
+#### @mago-format-ignore-start/end
+
+Ignores formatting for a specific region:
+
+```php
+// @mago-format-ignore-start
+$complex = [
+    'nested' => [
+        'deeply' => 'formatted',
+        'preserve' => 'this',
+    ],
+];
+// @mago-format-ignore-end
+```
+
+#### @mago-format-ignore (file-level)
+
+Ignores formatting for the entire file. This is added at the top of the file:
+
+```php
+<?php
+// @mago-format-ignore
+
+// The rest of this file won't be formatted
+class MyClass {
+    // ...
+}
+```
+
+## Using Baselines
+
+Baselines are useful when you're adding Mago to an existing project with many existing issues. They let you focus on new problems while ignoring known issues.
+
+1. Run `Mago: Generate Lint Baseline` and/or `Mago: Generate Analysis Baseline` to create baseline files
+2. Enable baseline usage in your settings:
+   ```json
+   {
+     "mago.useBaselines": true
+   }
+   ```
+3. Only new issues will be reported going forward
+
+## Troubleshooting
+
+### Mago Not Found
+
+If you see errors about Mago not being found:
+
+1. **Check auto-discovery**: The extension automatically looks for Mago in `vendor/bin/mago` in your workspace. If you're using Composer, make sure Mago is installed as a dependency.
+
+2. **Check your PATH**: Make sure Mago is installed and available in your system PATH. Test by running `mago --version` in your terminal.
+
+3. **Set a custom path**: If Mago is in a different location, set `mago.binPath` to the full path:
+   ```json
+   {
+     "mago.binPath": "/path/to/mago"
+   }
+   ```
+
+4. **Use workspace variables**: You can use VSCode workspace variables in the path:
+   ```json
+   {
+     "mago.binPath": "${workspaceFolder}/vendor/bin/mago"
+   }
+   ```
+
+5. **Docker/Container setup**: If you need to run Mago via Docker or another wrapper, use `mago.binCommand`:
+   ```json
+   {
+     "mago.binCommand": ["docker", "exec", "mago-container", "mago"]
+   }
+   ```
+
+### Extension Not Working
+
+1. Check that `mago.enabled` is set to `true` in your settings
+2. Verify Mago is working by running `mago --version` in your terminal
+3. Check the VSCode Output panel (View → Output) and select "Mago" from the dropdown to see detailed logs, error messages, and command execution information
+
+The Output panel shows:
+- Command execution logs
+- Error messages and stack traces
+- Issue counts and parsing results
+- Process exit codes and stderr output
+
+### Performance Issues
+
+If scanning is too slow:
+
+1. Increase the timeout: `"mago.timeout": 60000`
+2. Disable scanning on save: `"mago.runOnSave": false`
+3. Adjust the minimum report level to show fewer issues: `"mago.minimumReportLevel": "warning"`
 
 ## License
 
@@ -155,5 +405,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Related Projects
 
-- [Mago](https://github.com/carthage-software/mago) - The PHP linter and static analyzer
-- [phpstan-vscode](https://github.com/SanderRonde/phpstan-vscode) - Inspiration for this extension
+- [Mago](https://github.com/carthage-software/mago) - The PHP linter and static analyzer that powers this extension

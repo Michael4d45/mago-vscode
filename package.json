@@ -38,7 +38,7 @@
         "mago.binPath": {
           "type": "string",
           "default": "mago",
-          "description": "Path to mago binary (e.g., ${workspaceFolder}/vendor/bin/mago)"
+          "description": "Path to mago binary (blank = auto-detect from vendor/bin/mago, default: 'mago')"
         },
         "mago.binCommand": {
           "type": "array",
@@ -172,6 +172,21 @@
         "command": "mago.formatStaged",
         "title": "Format Staged Files",
         "category": "Mago"
+      },
+      {
+        "command": "mago.addFormatIgnoreNext",
+        "title": "Add @mago-format-ignore-next",
+        "category": "Mago"
+      },
+      {
+        "command": "mago.addFormatIgnoreRegion",
+        "title": "Add @mago-format-ignore-start/end",
+        "category": "Mago"
+      },
+      {
+        "command": "mago.addFormatIgnoreFile",
+        "title": "Add @mago-format-ignore (file-level)",
+        "category": "Mago"
       }
     ],
     "menus": {
@@ -205,6 +220,35 @@
         },
         {
           "command": "mago.formatStaged"
+        },
+        {
+          "command": "mago.addFormatIgnoreNext",
+          "when": "resourceExtname == .php"
+        },
+        {
+          "command": "mago.addFormatIgnoreRegion",
+          "when": "resourceExtname == .php"
+        },
+        {
+          "command": "mago.addFormatIgnoreFile",
+          "when": "resourceExtname == .php"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "mago.addFormatIgnoreNext",
+          "when": "editorHasSelection && editorLangId == php",
+          "group": "1_modification"
+        },
+        {
+          "command": "mago.addFormatIgnoreRegion",
+          "when": "editorHasSelection && editorLangId == php",
+          "group": "1_modification"
+        },
+        {
+          "command": "mago.addFormatIgnoreFile",
+          "when": "editorLangId == php",
+          "group": "1_modification"
         }
       ]
     }

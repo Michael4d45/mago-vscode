@@ -19,6 +19,11 @@ import {
   DocumentFormattingEditProvider,
   FormattingOptions,
   CancellationToken,
+  CodeActionProvider,
+  CodeAction,
+  CodeActionKind,
+  Position,
+  CodeActionContext,
 } from 'vscode';
 import { COMMANDS } from '@shared/commands/defs';
 
@@ -26,6 +31,8 @@ let diagnosticCollection = languages.createDiagnosticCollection('mago');
 let statusBarItem: StatusBarItem | undefined;
 let runningProcess: ChildProcess | undefined;
 let outputChannel: OutputChannel | undefined;
+// Map to store issues by key (filePath:line:col:code) for code actions
+const issueMap = new Map<string, MagoIssue>();
 
 interface MagoSpan {
   file_id: {
@@ -49,6 +56,19 @@ interface MagoAnnotation {
   span: MagoSpan;
 }
 
+interface MagoEdit {
+  range: { start: number; end: number };
+  new_text: string;
+  safety?: "safe" | "potentiallyunsafe" | "unsafe";
+}
+
+interface MagoFileId {
+  name: string;
+  path: string;
+  size: number;
+  file_type: string;
+}
+
 interface MagoIssue {
   level: string; // "Error", "Warning", "Note", "Help"
   code: string;
@@ -56,7 +76,8 @@ interface MagoIssue {
   notes?: string[];
   help?: string;
   annotations: MagoAnnotation[];
-  edits?: any[];
+  edits?: [MagoFileId, MagoEdit[]][];
+  category?: 'lint' | 'analysis'; // Track which command this issue came from
 }
 
 interface MagoResult {
@@ -136,6 +157,74 @@ export function activate(context: ExtensionContext) {
     commands.registerCommand(COMMANDS.FORMAT_STAGED, async () => {
       await formatStaged();
     }),
+
+    commands.registerCommand('mago.applyFix', async (issue: MagoIssue, uri: Uri) => {
+      await applyMagoFix(issue, uri);
+    }),
+
+    commands.registerCommand('mago.addSuppression', async (
+      document: TextDocument,
+      line: number,
+      type: 'expect',
+      suppressionCode: string
+    ) => {
+      await addSuppression(document, line, type, suppressionCode);
+    }),
+
+    commands.registerCommand('mago.addFormatIgnoreFile', async () => {
+      const activeEditor = window.activeTextEditor;
+      if (!activeEditor || activeEditor.document.languageId !== 'php') {
+        window.showWarningMessage('Mago: Please open a PHP file.');
+        return;
+      }
+      await addFormatIgnoreFile(activeEditor.document);
+    }),
+
+    commands.registerCommand('mago.addFormatIgnoreNext', async (document?: TextDocument, range?: Range) => {
+      let doc = document;
+      let selectionRange = range;
+      
+      // If not provided, get from active editor
+      if (!doc || !selectionRange) {
+        const activeEditor = window.activeTextEditor;
+        if (!activeEditor || activeEditor.document.languageId !== 'php') {
+          window.showWarningMessage('Mago: Please select text in a PHP file.');
+          return;
+        }
+        doc = activeEditor.document;
+        const selection = activeEditor.selection;
+        if (selection.isEmpty) {
+          window.showWarningMessage('Mago: Please select some text first.');
+          return;
+        }
+        selectionRange = new Range(selection.start, selection.end);
+      }
+      
+      await addFormatIgnoreNext(doc, selectionRange);
+    }),
+
+    commands.registerCommand('mago.addFormatIgnoreRegion', async (document?: TextDocument, range?: Range) => {
+      let doc = document;
+      let selectionRange = range;
+      
+      // If not provided, get from active editor
+      if (!doc || !selectionRange) {
+        const activeEditor = window.activeTextEditor;
+        if (!activeEditor || activeEditor.document.languageId !== 'php') {
+          window.showWarningMessage('Mago: Please select text in a PHP file.');
+          return;
+        }
+        doc = activeEditor.document;
+        const selection = activeEditor.selection;
+        if (selection.isEmpty) {
+          window.showWarningMessage('Mago: Please select some text first.');
+          return;
+        }
+        selectionRange = new Range(selection.start, selection.end);
+      }
+      
+      await addFormatIgnoreRegion(doc, selectionRange);
+    }),
   );
 
   // Run on save if configured
@@ -196,6 +285,17 @@ export function activate(context: ExtensionContext) {
 
   context.subscriptions.push(
     languages.registerDocumentFormattingEditProvider('php', formatProvider)
+  );
+
+  // Register code action provider for quick fixes and source actions
+  context.subscriptions.push(
+    languages.registerCodeActionsProvider(
+      'php',
+      new MagoCodeActionProvider(),
+      {
+        providedCodeActionKinds: [CodeActionKind.QuickFix, CodeActionKind.Source]
+      }
+    )
   );
 
   // Format on save if configured
@@ -270,7 +370,9 @@ async function scanFile(document: TextDocument): Promise<void> {
         lintArgs.push(document.uri.fsPath);
         const lintResult = await runMago(lintArgs);
         if (lintResult && lintResult.issues) {
-          allIssues.push(...lintResult.issues);
+          // Tag issues with category
+          const taggedIssues = lintResult.issues.map(issue => ({ ...issue, category: 'lint' as const }));
+          allIssues.push(...taggedIssues);
         }
       } catch (error) {
         outputChannel?.appendLine(`[WARN] Lint failed: ${error}`);
@@ -291,7 +393,9 @@ async function scanFile(document: TextDocument): Promise<void> {
         analyzeArgs.push(document.uri.fsPath);
         const analyzeResult = await runMago(analyzeArgs);
         if (analyzeResult && analyzeResult.issues) {
-          allIssues.push(...analyzeResult.issues);
+          // Tag issues with category
+          const taggedIssues = analyzeResult.issues.map(issue => ({ ...issue, category: 'analysis' as const }));
+          allIssues.push(...taggedIssues);
         }
       } catch (error) {
         outputChannel?.appendLine(`[WARN] Analyze failed: ${error}`);
@@ -342,7 +446,9 @@ async function scanProject(): Promise<void> {
         }
         const lintResult = await runMago(lintArgs);
         if (lintResult && lintResult.issues) {
-          allIssues.push(...lintResult.issues);
+          // Tag issues with category
+          const taggedIssues = lintResult.issues.map(issue => ({ ...issue, category: 'lint' as const }));
+          allIssues.push(...taggedIssues);
         }
       } catch (error) {
         outputChannel?.appendLine(`[WARN] Lint failed: ${error}`);
@@ -361,7 +467,9 @@ async function scanProject(): Promise<void> {
         }
         const analyzeResult = await runMago(analyzeArgs);
         if (analyzeResult && analyzeResult.issues) {
-          allIssues.push(...analyzeResult.issues);
+          // Tag issues with category
+          const taggedIssues = analyzeResult.issues.map(issue => ({ ...issue, category: 'analysis' as const }));
+          allIssues.push(...taggedIssues);
         }
       } catch (error) {
         outputChannel?.appendLine(`[WARN] Analyze failed: ${error}`);
@@ -393,10 +501,20 @@ function resolvePath(path: string, workspaceRoot: string): string {
 
 async function runMago(args: string[]): Promise<MagoResult | null> {
   const config = workspace.getConfiguration('mago');
-  const binPath = config.get<string>('binPath', 'mago');
+  let binPath = config.get<string>('binPath', 'mago');
   const binCommand = config.get<string[]>('binCommand');
   const workspaceFolder = workspace.workspaceFolders?.[0];
   const workspaceRoot = workspaceFolder?.uri.fsPath || process.cwd();
+
+  // Auto-discover Mago binary if binPath is blank, empty, or default "mago"
+  if (!binCommand || binCommand.length === 0 || !binCommand[0]) {
+    if (!binPath || binPath.trim() === '' || binPath.trim() === 'mago') {
+      const discoveredPath = findMagoBinary(workspaceRoot);
+      if (discoveredPath) {
+        binPath = discoveredPath;
+      }
+    }
+  }
 
   // Build command - ensure we have a valid executable
   let command: string[];
@@ -552,6 +670,8 @@ async function runMago(args: string[]): Promise<MagoResult | null> {
 
 function updateDiagnostics(result: MagoResult): void {
   const diagnosticsMap = new Map<string, Diagnostic[]>();
+  // Clear issue map before updating
+  issueMap.clear();
 
   // Mago returns issues in a flat array, grouped by file via annotations
   for (const issue of result.issues || []) {
@@ -592,6 +712,10 @@ function updateDiagnostics(result: MagoResult): void {
         message: issue.help,
       }];
     }
+
+    // Store issue in map for code actions (key: filePath:line:col:code)
+    const issueKey = `${filePath}:${start.line}:${startCol}:${issue.code}`;
+    issueMap.set(issueKey, issue);
 
     if (!diagnosticsMap.has(filePath)) {
       diagnosticsMap.set(filePath, []);
@@ -648,8 +772,18 @@ async function generateBaseline(type: 'lint' | 'analyze'): Promise<void> {
   try {
     const config = workspace.getConfiguration('mago');
     const workspaceRoot = workspaceFolder.uri.fsPath;
-    const binPath = config.get<string>('binPath', 'mago');
+    let binPath = config.get<string>('binPath', 'mago');
     const binCommand = config.get<string[]>('binCommand');
+
+    // Auto-discover Mago binary if binPath is blank, empty, or default "mago"
+    if (!binCommand || binCommand.length === 0 || !binCommand[0]) {
+      if (!binPath || binPath.trim() === '' || binPath.trim() === 'mago') {
+        const discoveredPath = findMagoBinary(workspaceRoot);
+        if (discoveredPath) {
+          binPath = discoveredPath;
+        }
+      }
+    }
     
     let baselinePath: string;
     let command: string;
@@ -916,8 +1050,18 @@ async function formatStaged(): Promise<void> {
 
 async function runFormatCommand(paths: string[], workspaceRoot: string): Promise<void> {
   const config = workspace.getConfiguration('mago');
-  const binPath = config.get<string>('binPath', 'mago');
+  let binPath = config.get<string>('binPath', 'mago');
   const binCommand = config.get<string[]>('binCommand');
+
+  // Auto-discover Mago binary if binPath is blank, empty, or default "mago"
+  if (!binCommand || binCommand.length === 0 || !binCommand[0]) {
+    if (!binPath || binPath.trim() === '' || binPath.trim() === 'mago') {
+      const discoveredPath = findMagoBinary(workspaceRoot);
+      if (discoveredPath) {
+        binPath = discoveredPath;
+      }
+    }
+  }
 
   // Build command
   let execCommand: string[];
@@ -1012,8 +1156,18 @@ async function runFormatCommand(paths: string[], workspaceRoot: string): Promise
 
 async function runFormatCommandStdin(input: string, workspaceRoot: string): Promise<string> {
   const config = workspace.getConfiguration('mago');
-  const binPath = config.get<string>('binPath', 'mago');
+  let binPath = config.get<string>('binPath', 'mago');
   const binCommand = config.get<string[]>('binCommand');
+
+  // Auto-discover Mago binary if binPath is blank, empty, or default "mago"
+  if (!binCommand || binCommand.length === 0 || !binCommand[0]) {
+    if (!binPath || binPath.trim() === '' || binPath.trim() === 'mago') {
+      const discoveredPath = findMagoBinary(workspaceRoot);
+      if (discoveredPath) {
+        binPath = discoveredPath;
+      }
+    }
+  }
 
   // Build command
   let execCommand: string[];
@@ -1139,4 +1293,365 @@ function updateStatusBar(status: 'running' | 'idle' | 'error', message?: string)
       statusBarItem.tooltip = message || 'Mago encountered an error';
       break;
   }
+}
+
+// Code Action Provider for quick fixes
+class MagoCodeActionProvider implements CodeActionProvider {
+  provideCodeActions(
+    document: TextDocument,
+    range: Range,
+    context: CodeActionContext,
+    token: CancellationToken
+  ): CodeAction[] | undefined {
+    const actions: CodeAction[] = [];
+
+    // Check if text is selected - use range parameter or check active editor selection
+    let hasSelection = !range.isEmpty && range.start.compareTo(range.end) !== 0;
+    
+    // Also check active editor selection as fallback (VSCode might not pass selection in range)
+    if (!hasSelection) {
+      const activeEditor = window.activeTextEditor;
+      if (activeEditor && activeEditor.document.uri.toString() === document.uri.toString()) {
+        const selection = activeEditor.selection;
+        hasSelection = !selection.isEmpty && selection.start.compareTo(selection.end) !== 0;
+        // Use the active selection range if available
+        if (hasSelection) {
+          range = new Range(selection.start, selection.end);
+        }
+      }
+    }
+
+    // Add format ignore actions when text is selected
+    if (hasSelection && document.languageId === 'php' && document.uri.scheme === 'file') {
+      // Add "Add @mago-format-ignore-next" action
+      const ignoreNextAction = new CodeAction(
+        'Add @mago-format-ignore-next',
+        CodeActionKind.Source
+      );
+      ignoreNextAction.command = {
+        command: 'mago.addFormatIgnoreNext',
+        title: 'Add @mago-format-ignore-next',
+        arguments: [document, range],
+      };
+      actions.push(ignoreNextAction);
+
+      // Add "Add @mago-format-ignore-start/end" action
+      const ignoreRegionAction = new CodeAction(
+        'Add @mago-format-ignore-start/end',
+        CodeActionKind.Source
+      );
+      ignoreRegionAction.command = {
+        command: 'mago.addFormatIgnoreRegion',
+        title: 'Add @mago-format-ignore-start/end',
+        arguments: [document, range],
+      };
+      actions.push(ignoreRegionAction);
+
+      // Add "Add @mago-format-ignore" (file-level) action
+      const ignoreFileAction = new CodeAction(
+        'Add @mago-format-ignore (file-level)',
+        CodeActionKind.Source
+      );
+      ignoreFileAction.command = {
+        command: 'mago.addFormatIgnoreFile',
+        title: 'Add @mago-format-ignore',
+      };
+      actions.push(ignoreFileAction);
+    }
+
+    // Add diagnostic-based actions
+    for (const diagnostic of context.diagnostics) {
+      if (diagnostic.source !== 'mago' || !diagnostic.code) {
+        continue;
+      }
+
+      const filePath = document.uri.fsPath;
+      const startLine = diagnostic.range.start.line;
+      const startCol = diagnostic.range.start.character;
+      const issueKey = `${filePath}:${startLine}:${startCol}:${diagnostic.code}`;
+      const issue = issueMap.get(issueKey);
+
+      if (!issue) {
+        continue;
+      }
+
+      // Add "Apply fix" action if edits are available
+      if (issue.edits && issue.edits.length > 0) {
+        const applyFixAction = new CodeAction(
+          `Apply fix: ${diagnostic.message}`,
+          CodeActionKind.QuickFix
+        );
+        applyFixAction.diagnostics = [diagnostic];
+        applyFixAction.command = {
+          command: 'mago.applyFix',
+          title: 'Apply Mago fix',
+          arguments: [issue, document.uri],
+        };
+        actions.push(applyFixAction);
+      }
+
+      // Determine category (default to 'lint' if not set for backwards compatibility)
+      const category = issue.category || 'lint';
+      const suppressionCode = `${category}:${issue.code}`;
+
+      // Add "Suppress with @mago-expect" action
+      // Use the diagnostic range's end line, as that's typically where the actual issue code is
+      // The diagnostic range is calculated from the annotation span and accounts for the actual code location
+      const issueLine = diagnostic.range.end.line;
+      
+      const expectAction = new CodeAction(
+        `Suppress with @mago-expect ${suppressionCode}`,
+        CodeActionKind.QuickFix
+      );
+      expectAction.diagnostics = [diagnostic];
+      expectAction.command = {
+        command: 'mago.addSuppression',
+        title: 'Add @mago-expect',
+        arguments: [document, issueLine, 'expect', suppressionCode],
+      };
+      actions.push(expectAction);
+    }
+
+    // Always return actions if we have any (including format ignore actions)
+    // This ensures format ignore actions appear even without diagnostics
+    return actions.length > 0 ? actions : undefined;
+  }
+}
+
+// Apply Mago fix from edits
+async function applyMagoFix(issue: MagoIssue, uri: Uri): Promise<void> {
+  if (!issue.edits || issue.edits.length === 0) {
+    window.showWarningMessage('Mago: No fixes available for this issue.');
+    return;
+  }
+
+  try {
+    const edit = new WorkspaceEdit();
+
+    for (const [fileId, edits] of issue.edits) {
+      const fileUri = Uri.file(fileId.path);
+      const document = await workspace.openTextDocument(fileUri);
+      const content = document.getText();
+
+      for (const magoEdit of edits) {
+        // Convert byte offsets to positions
+        const startPos = offsetToPosition(content, magoEdit.range.start);
+        const endPos = offsetToPosition(content, magoEdit.range.end);
+        const range = new Range(startPos, endPos);
+
+        edit.replace(fileUri, range, magoEdit.new_text);
+      }
+    }
+
+    const applied = await workspace.applyEdit(edit);
+    if (applied) {
+      window.showInformationMessage('Mago: Fix applied successfully.');
+    } else {
+      window.showWarningMessage('Mago: Failed to apply fix.');
+    }
+  } catch (error) {
+    window.showErrorMessage(`Mago: Failed to apply fix - ${error}`);
+    outputChannel?.appendLine(`[ERROR] Apply fix error: ${error}`);
+    if (error instanceof Error) {
+      outputChannel?.appendLine(`[ERROR] Stack: ${error.stack}`);
+    }
+  }
+}
+
+// Convert byte offset to Position
+function offsetToPosition(content: string, offset: number): Position {
+  const beforeOffset = content.substring(0, offset);
+  const lines = beforeOffset.split('\n');
+  const line = Math.max(0, lines.length - 1);
+  const character = lines[lines.length - 1].length;
+  return new Position(line, character);
+}
+
+// Add suppression comment
+async function addSuppression(
+  document: TextDocument,
+  line: number,
+  type: 'expect',
+  suppressionCode: string
+): Promise<void> {
+  try {
+    const edit = new WorkspaceEdit();
+    
+    // Get the indentation from the line with the issue to match it
+    const issueLineText = document.lineAt(line).text;
+    const indentation = issueLineText.match(/^\s*/)?.[0] || '';
+    
+    // Check if the line before the issue is a closing brace
+    const prevLineNum = Math.max(0, line - 1);
+    const prevLineText = document.lineAt(prevLineNum).text;
+    const prevLineTrimmed = prevLineText.trim();
+    
+    // If the previous line is just a closing brace (}, };, ], etc.), place suppression on a new line after it
+    if (prevLineTrimmed === '}' || prevLineTrimmed === '};' || prevLineTrimmed === '],' || 
+        prevLineTrimmed === ');' || prevLineTrimmed.match(/^[}\]\);,]+$/)) {
+      // Insert after the closing brace, creating a new line for the suppression
+      const braceEndPos = prevLineText.length;
+      const position = new Position(prevLineNum, braceEndPos);
+      // Add newline after brace, then comment (no trailing newline since next line already exists)
+      const comment = `\n${indentation}// @mago-expect ${suppressionCode}`;
+      edit.insert(document.uri, position, comment);
+    } else {
+      // Insert on a new line before the issue line
+      // Insert at the start of the issue line, which will push it down
+      // The trailing newline ensures the issue line appears on its own line after the comment
+      const position = new Position(line, 0);
+      const comment = `${indentation}// @mago-expect ${suppressionCode}\n`;
+      edit.insert(document.uri, position, comment);
+    }
+    
+    const applied = await workspace.applyEdit(edit);
+    
+    if (applied) {
+      window.showInformationMessage(`Mago: Added @mago-expect suppression.`);
+    } else {
+      window.showWarningMessage('Mago: Failed to add suppression.');
+    }
+  } catch (error) {
+    window.showErrorMessage(`Mago: Failed to add suppression - ${error}`);
+    outputChannel?.appendLine(`[ERROR] Add suppression error: ${error}`);
+    if (error instanceof Error) {
+      outputChannel?.appendLine(`[ERROR] Stack: ${error.stack}`);
+    }
+  }
+}
+
+// Add file-level format ignore
+async function addFormatIgnoreFile(document: TextDocument): Promise<void> {
+  try {
+    const edit = new WorkspaceEdit();
+    const content = document.getText();
+    
+    // Check if file already has @mago-format-ignore
+    if (content.includes('@mago-format-ignore') || content.includes('@mago-formatter-ignore')) {
+      window.showWarningMessage('Mago: File already contains a format ignore marker.');
+      return;
+    }
+
+    // Find insertion point - after <?php if present, otherwise at line 0
+    let insertLine = 0;
+    
+    // Check if file starts with <?php
+    if (content.trim().startsWith('<?php')) {
+      // Find the line after the opening tag
+      const firstLine = document.lineAt(0);
+      if (firstLine.text.includes('<?php')) {
+        // If <?php is on first line, insert on second line (line 1)
+        insertLine = 1;
+      } else {
+        // Otherwise insert at line 0
+        insertLine = 0;
+      }
+    }
+
+    const position = new Position(insertLine, 0);
+    const comment = '// @mago-format-ignore\n';
+
+    edit.insert(document.uri, position, comment);
+    const applied = await workspace.applyEdit(edit);
+    
+    if (applied) {
+      window.showInformationMessage('Mago: Added @mago-format-ignore (file-level).');
+    } else {
+      window.showWarningMessage('Mago: Failed to add format ignore.');
+    }
+  } catch (error) {
+    window.showErrorMessage(`Mago: Failed to add format ignore - ${error}`);
+    outputChannel?.appendLine(`[ERROR] Add format ignore error: ${error}`);
+    if (error instanceof Error) {
+      outputChannel?.appendLine(`[ERROR] Stack: ${error.stack}`);
+    }
+  }
+}
+
+// Add next statement format ignore
+async function addFormatIgnoreNext(
+  document: TextDocument,
+  range: Range
+): Promise<void> {
+  try {
+    const edit = new WorkspaceEdit();
+    // Insert on line before selection start
+    const insertLine = Math.max(0, range.start.line - 1);
+    
+    // Get indentation from selection start line
+    const selectionStartLine = document.lineAt(range.start.line);
+    const indentation = selectionStartLine.text.match(/^\s*/)?.[0] || '';
+    
+    const position = new Position(insertLine, 0);
+    const comment = `${indentation}// @mago-format-ignore-next\n`;
+
+    edit.insert(document.uri, position, comment);
+    const applied = await workspace.applyEdit(edit);
+    
+    if (applied) {
+      window.showInformationMessage('Mago: Added @mago-format-ignore-next.');
+    } else {
+      window.showWarningMessage('Mago: Failed to add format ignore.');
+    }
+  } catch (error) {
+    window.showErrorMessage(`Mago: Failed to add format ignore - ${error}`);
+    outputChannel?.appendLine(`[ERROR] Add format ignore error: ${error}`);
+    if (error instanceof Error) {
+      outputChannel?.appendLine(`[ERROR] Stack: ${error.stack}`);
+    }
+  }
+}
+
+// Add region format ignore (start/end)
+async function addFormatIgnoreRegion(
+  document: TextDocument,
+  range: Range
+): Promise<void> {
+  try {
+    const edit = new WorkspaceEdit();
+    
+    // Get indentation from selection start line
+    const selectionStartLine = document.lineAt(range.start.line);
+    const startIndentation = selectionStartLine.text.match(/^\s*/)?.[0] || '';
+    
+    // Get indentation from selection end line (may differ)
+    const selectionEndLine = document.lineAt(range.end.line);
+    const endIndentation = selectionEndLine.text.match(/^\s*/)?.[0] || '';
+    
+    // Insert start marker on line before selection
+    const startLine = Math.max(0, range.start.line - 1);
+    const startPosition = new Position(startLine, 0);
+    const startComment = `${startIndentation}// @mago-format-ignore-start\n`;
+    edit.insert(document.uri, startPosition, startComment);
+    
+    // Insert end marker on line after selection
+    const endLine = range.end.line + 1;
+    const endPosition = new Position(endLine, 0);
+    const endComment = `${endIndentation}// @mago-format-ignore-end\n`;
+    edit.insert(document.uri, endPosition, endComment);
+    
+    const applied = await workspace.applyEdit(edit);
+    
+    if (applied) {
+      window.showInformationMessage('Mago: Added @mago-format-ignore-start/end region.');
+    } else {
+      window.showWarningMessage('Mago: Failed to add format ignore region.');
+    }
+  } catch (error) {
+    window.showErrorMessage(`Mago: Failed to add format ignore region - ${error}`);
+    outputChannel?.appendLine(`[ERROR] Add format ignore region error: ${error}`);
+    if (error instanceof Error) {
+      outputChannel?.appendLine(`[ERROR] Stack: ${error.stack}`);
+    }
+  }
+}
+
+// Find Mago binary in vendor/bin/mago
+function findMagoBinary(workspaceRoot: string): string | null {
+  const vendorPath = `${workspaceRoot}/vendor/bin/mago`;
+  if (fs.existsSync(vendorPath)) {
+    outputChannel?.appendLine(`[INFO] Auto-discovered Mago binary at: ${vendorPath}`);
+    return vendorPath;
+  }
+  return null;
 }
