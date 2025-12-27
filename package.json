@@ -3,7 +3,7 @@
   "displayName": "Mago",
   "description": "Mago integration for VSCode",
   "version": "0.1.1",
-  "publisher": "mago",
+  "publisher": "Michael4d45",
   "license": "MIT",
   "repository": "https://github.com/michael4d45/mago-vscode",
   "engines": {
