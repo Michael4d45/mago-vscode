@@ -99,9 +99,9 @@ The extension provides the following commands (accessible via Command Palette):
 The extension runs Mago commands directly from the VSCode extension host:
 
 ```
-┌─────────────┐
+┌────────────┐
 │   Client   │
-│ (VSCode)   │
+│  (VSCode)  │
 └────────────┘
       │
       │ spawns
@@ -109,8 +109,8 @@ The extension runs Mago commands directly from the VSCode extension host:
       ▼
 ┌─────────────┐
 │    Mago     │
-│  (lint)     │
-└────────────┘
+│   (lint)    │
+└─────────────┘
 ```
 
 ### Key Components
