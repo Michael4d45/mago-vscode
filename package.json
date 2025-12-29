@@ -2,7 +2,7 @@
   "name": "mago-vscode",
   "displayName": "Mago",
   "description": "Mago integration for VSCode",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "publisher": "Michael4d45",
   "license": "MIT",
   "repository": {
@@ -28,6 +28,7 @@
     "onCommand:mago.clearErrors",
     "onCommand:mago.generateLintBaseline",
     "onCommand:mago.generateAnalysisBaseline",
+    "onCommand:mago.generateGuardBaseline",
     "onCommand:mago.formatFile",
     "onCommand:mago.formatDocument",
     "onCommand:mago.formatProject",
@@ -41,7 +42,7 @@
         "mago.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Enable Mago extension"
+          "description": "Enable Mago extension. Note: Changing this setting requires reloading the IDE to take effect."
         },
         "mago.binPath": {
           "type": "string",
@@ -136,6 +137,21 @@
           "default": "analysis-baseline.toml",
           "description": "Path to analysis baseline file (e.g., analysis-baseline.toml or ${workspaceFolder}/analysis-baseline.toml)"
         },
+        "mago.enableGuard": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable architectural guard checks"
+        },
+        "mago.guardBaseline": {
+          "type": "string",
+          "default": "guard-baseline.toml",
+          "description": "Path to guard baseline file (e.g., guard-baseline.toml or ${workspaceFolder}/guard-baseline.toml)"
+        },
+        "mago.runGuardOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run guard checks when PHP files are saved. Note: Guard can be slower than lint/analyze, so this defaults to false."
+        },
         "mago.enableFormat": {
           "type": "boolean",
           "default": true,
@@ -172,6 +188,11 @@
       {
         "command": "mago.generateAnalysisBaseline",
         "title": "Generate Analysis Baseline",
+        "category": "Mago"
+      },
+      {
+        "command": "mago.generateGuardBaseline",
+        "title": "Generate Guard Baseline",
         "category": "Mago"
       },
       {
@@ -227,6 +248,9 @@
         },
         {
           "command": "mago.generateAnalysisBaseline"
+        },
+        {
+          "command": "mago.generateGuardBaseline"
         },
         {
           "command": "mago.formatFile",

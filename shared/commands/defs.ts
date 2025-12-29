@@ -4,6 +4,7 @@ export const COMMANDS = {
   CLEAR_ERRORS: 'mago.clearErrors',
   GENERATE_LINT_BASELINE: 'mago.generateLintBaseline',
   GENERATE_ANALYSIS_BASELINE: 'mago.generateAnalysisBaseline',
+  GENERATE_GUARD_BASELINE: 'mago.generateGuardBaseline',
   FORMAT_FILE: 'mago.formatFile',
   FORMAT_DOCUMENT: 'mago.formatDocument',
   FORMAT_PROJECT: 'mago.formatProject',

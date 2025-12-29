@@ -77,7 +77,7 @@ interface MagoIssue {
   help?: string;
   annotations: MagoAnnotation[];
   edits?: [MagoFileId, MagoEdit[]][];
-  category?: 'lint' | 'analysis'; // Track which command this issue came from
+  category?: 'lint' | 'analysis' | 'guard'; // Track which command this issue came from
 }
 
 interface MagoResult {
@@ -130,6 +130,10 @@ export function activate(context: ExtensionContext) {
 
     commands.registerCommand(COMMANDS.GENERATE_ANALYSIS_BASELINE, async () => {
       await generateBaseline('analyze');
+    }),
+
+    commands.registerCommand(COMMANDS.GENERATE_GUARD_BASELINE, async () => {
+      await generateBaseline('guard');
     }),
 
     commands.registerCommand(COMMANDS.FORMAT_FILE, async () => {
@@ -358,6 +362,7 @@ async function scanFile(document: TextDocument): Promise<void> {
     const config = workspace.getConfiguration('mago');
     const enableLint = config.get<boolean>('enableLint', true);
     const enableAnalyze = config.get<boolean>('enableAnalyze', true);
+    const enableGuard = config.get<boolean>('enableGuard', false);
     const useBaselines = config.get<boolean>('useBaselines', false);
     
     const allIssues: MagoIssue[] = [];
@@ -408,8 +413,31 @@ async function scanFile(document: TextDocument): Promise<void> {
       }
     }
     
+    // Run guard if enabled
+    if (enableGuard) {
+      try {
+        const guardArgs = ['guard', '--reporting-format', 'json'];
+        if (useBaselines) {
+          const guardBaseline = config.get<string>('guardBaseline', 'guard-baseline.toml');
+          const workspaceFolder = workspace.workspaceFolders?.[0];
+          const workspaceRoot = workspaceFolder?.uri.fsPath || process.cwd();
+          const baselinePath = resolvePath(guardBaseline, workspaceRoot);
+          guardArgs.push('--baseline', baselinePath);
+        }
+        guardArgs.push(document.uri.fsPath);
+        const guardResult = await runMago(guardArgs);
+        if (guardResult && guardResult.issues) {
+          // Tag issues with category
+          const taggedIssues = guardResult.issues.map(issue => ({ ...issue, category: 'guard' as const }));
+          allIssues.push(...taggedIssues);
+        }
+      } catch (error) {
+        outputChannel?.appendLine(`[WARN] Guard failed: ${error}`);
+      }
+    }
+    
     // Update diagnostics with merged results (only if at least one command is enabled)
-    if (enableLint || enableAnalyze) {
+    if (enableLint || enableAnalyze || enableGuard) {
       updateDiagnostics({ issues: allIssues });
     }
   } catch (error) {
@@ -436,6 +464,7 @@ async function scanProject(): Promise<void> {
     const config = workspace.getConfiguration('mago');
     const enableLint = config.get<boolean>('enableLint', true);
     const enableAnalyze = config.get<boolean>('enableAnalyze', true);
+    const enableGuard = config.get<boolean>('enableGuard', false);
     const useBaselines = config.get<boolean>('useBaselines', false);
     
     const allIssues: MagoIssue[] = [];
@@ -482,8 +511,29 @@ async function scanProject(): Promise<void> {
       }
     }
     
+    // Run guard if enabled
+    if (enableGuard) {
+      try {
+        const guardArgs = ['guard', '--reporting-format', 'json'];
+        if (useBaselines) {
+          const guardBaseline = config.get<string>('guardBaseline', 'guard-baseline.toml');
+          const workspaceRoot = workspaceFolder.uri.fsPath;
+          const baselinePath = resolvePath(guardBaseline, workspaceRoot);
+          guardArgs.push('--baseline', baselinePath);
+        }
+        const guardResult = await runMago(guardArgs);
+        if (guardResult && guardResult.issues) {
+          // Tag issues with category
+          const taggedIssues = guardResult.issues.map(issue => ({ ...issue, category: 'guard' as const }));
+          allIssues.push(...taggedIssues);
+        }
+      } catch (error) {
+        outputChannel?.appendLine(`[WARN] Guard failed: ${error}`);
+      }
+    }
+    
     // Update diagnostics with merged results (only if at least one command is enabled)
-    if (enableLint || enableAnalyze) {
+    if (enableLint || enableAnalyze || enableGuard) {
       updateDiagnostics({ issues: allIssues });
     }
   } catch (error) {
@@ -706,7 +756,15 @@ function updateDiagnostics(result: MagoResult): void {
     const severity = mapSeverity(issue.level);
     const diagnostic = new Diagnostic(range, issue.message, severity);
     diagnostic.source = 'mago';
-    diagnostic.code = issue.code;
+    // Prefix code with category if available (lint:code, analyze:code, or guard:code)
+    let diagnosticCode: string;
+    if (issue.category) {
+      const categoryPrefix = issue.category === 'analysis' ? 'analyze' : issue.category;
+      diagnosticCode = `${categoryPrefix}:${issue.code}`;
+    } else {
+      diagnosticCode = issue.code;
+    }
+    diagnostic.code = diagnosticCode;
 
     // Add help/notes as related information if available
     if (issue.help) {
@@ -720,7 +778,8 @@ function updateDiagnostics(result: MagoResult): void {
     }
 
     // Store issue in map for code actions (key: filePath:line:col:code)
-    const issueKey = `${filePath}:${start.line}:${startCol}:${issue.code}`;
+    // Use the prefixed code to match what's in the diagnostic
+    const issueKey = `${filePath}:${start.line}:${startCol}:${diagnosticCode}`;
     issueMap.set(issueKey, issue);
 
     if (!diagnosticsMap.has(filePath)) {
@@ -766,7 +825,7 @@ function mapSeverity(level: string): DiagnosticSeverity {
   }
 }
 
-async function generateBaseline(type: 'lint' | 'analyze'): Promise<void> {
+async function generateBaseline(type: 'lint' | 'analyze' | 'guard'): Promise<void> {
   const workspaceFolder = workspace.workspaceFolders?.[0];
   if (!workspaceFolder) {
     window.showWarningMessage('Mago: No workspace folder open.');
@@ -799,10 +858,14 @@ async function generateBaseline(type: 'lint' | 'analyze'): Promise<void> {
       baselinePath = resolvePath(config.get<string>('lintBaseline', 'lint-baseline.toml'), workspaceRoot);
       command = 'lint';
       baselineName = 'lint baseline';
-    } else {
+    } else if (type === 'analyze') {
       baselinePath = resolvePath(config.get<string>('analysisBaseline', 'analysis-baseline.toml'), workspaceRoot);
       command = 'analyze';
       baselineName = 'analysis baseline';
+    } else {
+      baselinePath = resolvePath(config.get<string>('guardBaseline', 'guard-baseline.toml'), workspaceRoot);
+      command = 'guard';
+      baselineName = 'guard baseline';
     }
 
     outputChannel?.appendLine(`[INFO] Generating ${baselineName} at: ${baselinePath}`);

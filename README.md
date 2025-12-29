@@ -1,6 +1,6 @@
 # Mago VSCode Extension
 
-A powerful VSCode extension that seamlessly integrates [Mago](https://github.com/carthage-software/mago)'s advanced linting and static analysis tools into your PHP development workflow. Get real-time feedback, automatic fixes, and professional code formatting—all without leaving your editor.
+A powerful VSCode extension that seamlessly integrates [Mago](https://github.com/carthage-software/mago)'s advanced linting, static analysis, and architectural guard tools into your PHP development workflow. Get real-time feedback, automatic fixes, and professional code formatting—all without leaving your editor.
 
 ![Timeline comparison of intelephense, mago, and phpstan](Timeline.gif)
 
@@ -9,6 +9,7 @@ A powerful VSCode extension that seamlessly integrates [Mago](https://github.com
 ## Why Use This Extension?
 
 - **Catch Bugs Before They Ship**: Real-time static analysis finds potential issues as you code
+- **Enforce Architecture**: Architectural guard ensures your code follows defined architectural boundaries and layer dependencies
 - **Fix Issues Instantly**: One-click quick fixes automatically resolve many common problems
 - **Professional Code Quality**: Consistent formatting and style enforcement across your entire project, with fine-grained control via format ignore directives
 - **Zero Configuration**: Works out of the box—auto-discovers Mago in your `vendor/bin` directory
@@ -23,7 +24,8 @@ A powerful VSCode extension that seamlessly integrates [Mago](https://github.com
 - **Format Ignore Directives**: Right-click on selected code to easily exclude it from formatting with `@mago-format-ignore-next`, `@mago-format-ignore-start/end`, or file-level `@mago-format-ignore`
 - **Status Bar Integration**: Displays analysis status in VSCode's status bar
 - **Code Formatting**: Format PHP files on save or via commands (can be set as default formatter)
-- **Separate Lint and Analysis**: Enable or disable linting and static analysis independently
+- **Separate Lint, Analysis, and Guard**: Enable or disable linting, static analysis, and architectural guard independently
+- **Architectural Guard**: Enforce architectural rules and layer dependencies to maintain clean architecture
 - **Baseline Support**: Generate baseline files to ignore existing issues and focus on new problems
 - **Auto-Discovery**: Automatically finds Mago binary in `vendor/bin/mago` if not in PATH
 - **Configurable**: Supports `mago.toml` configuration files and extensive VSCode settings
@@ -58,6 +60,11 @@ When Mago finds issues in your code, they appear as:
 - **Hint markers** (gray squiggles) for help messages
 
 Hovering over an issue shows the full message, error code, and any help text provided by Mago. You can also see all issues in the Problems panel (View → Problems).
+
+**Issue Categories**: Issues are prefixed with their category:
+- `lint:code` - Linting issues (code style, syntax problems)
+- `analyze:code` - Static analysis issues (type errors, logic problems)
+- `guard:code` - Architectural guard violations (layer dependency violations)
 
 ### Quick Fixes
 
@@ -144,7 +151,8 @@ To ignore existing issues and only show new problems:
 {
   "mago.useBaselines": true,
   "mago.lintBaseline": "lint-baseline.toml",
-  "mago.analysisBaseline": "analysis-baseline.toml"
+  "mago.analysisBaseline": "analysis-baseline.toml",
+  "mago.guardBaseline": "guard-baseline.toml"
 }
 ```
 
@@ -175,18 +183,26 @@ To use Mago as the default formatter for PHP files:
 }
 ```
 
-#### Enabling/Disabling Lint and Analysis Separately
+#### Enabling/Disabling Lint, Analysis, and Guard Separately
 
-You can enable or disable linting and static analysis independently:
+You can enable or disable linting, static analysis, and architectural guard independently:
 
 ```json
 {
   "mago.enableLint": true,      // Enable linting (default: true)
-  "mago.enableAnalyze": false   // Disable static analysis (default: true)
+  "mago.enableAnalyze": true,   // Enable static analysis (default: true)
+  "mago.enableGuard": false     // Enable architectural guard (default: false)
 }
 ```
 
-This is useful if you only want to use one feature or want to run them separately.
+This is useful if you only want to use specific features or want to run them separately. Note that guard can be slower than lint/analyze, so it defaults to disabled. Enable it when you need architectural enforcement:
+
+```json
+{
+  "mago.enableGuard": true,     // Enable guard for architectural checks
+  "mago.runGuardOnSave": false  // Guard doesn't run on save by default
+}
+```
 
 #### Run on Save: Single File vs Whole Project
 
@@ -219,8 +235,11 @@ Or to scan only the saved file:
 | `mago.binCommand` | array | `null` | Custom command array for running mago (e.g., `["docker", "exec", "mago"]`) |
 | `mago.configFile` | string | `"mago.toml"` | Path to `mago.toml` configuration file (supports workspace variables) |
 | `mago.workspace` | string | `null` | Workspace root directory (usually auto-detected) |
-| `mago.enableLint` | boolean | `true` | Enable linting (can be disabled independently from analysis) |
-| `mago.enableAnalyze` | boolean | `true` | Enable static analysis (can be disabled independently from linting) |
+| `mago.enableLint` | boolean | `true` | Enable linting (can be disabled independently from analysis and guard) |
+| `mago.enableAnalyze` | boolean | `true` | Enable static analysis (can be disabled independently from linting and guard) |
+| `mago.enableGuard` | boolean | `false` | Enable architectural guard checks (can be enabled independently from linting and analysis). Note: Guard can be slower than lint/analyze, so it defaults to false. |
+| `mago.guardBaseline` | string | `"guard-baseline.toml"` | Path to guard baseline file (supports workspace variables) |
+| `mago.runGuardOnSave` | boolean | `false` | Run guard checks when PHP files are saved. Note: Guard can be slower than lint/analyze, so this defaults to false. |
 | `mago.runOnSave` | boolean | `true` | Run Mago automatically when PHP files are saved |
 | `mago.runOnSaveScope` | string | `"project"` | What to run the linter/analyzer on when saving: `"file"` (single file) or `"project"` (whole project) |
 | `mago.scanOnOpen` | boolean | `true` | Scan project automatically when workspace opens |
@@ -248,6 +267,7 @@ Access these commands via the Command Palette (Ctrl+Shift+P / Cmd+Shift+P):
 
 - **`Mago: Generate Lint Baseline`** - Generate a baseline file for lint issues (saves existing issues so they won't be reported)
 - **`Mago: Generate Analysis Baseline`** - Generate a baseline file for analysis issues
+- **`Mago: Generate Guard Baseline`** - Generate a baseline file for guard violations (saves existing architectural violations so they won't be reported)
 
 ### Formatting Commands
 
@@ -277,7 +297,7 @@ Sometimes you need to suppress a specific issue. The extension provides suppress
 
 #### @mago-expect
 
-Expects a specific error code with category prefix, useful for documenting known issues. The format is `category:code` where category is either `lint` or `analysis`:
+Expects a specific error code with category prefix, useful for documenting known issues. The format is `category:code` where category is `lint`, `analysis`, or `guard`:
 
 ```php
 // @mago-expect lint:unused-variable
@@ -287,6 +307,9 @@ $unused = getValue(); // We expect this lint warning
 function incomplete() {
     // We know this function doesn't return
 }
+
+// @mago-expect guard:disallowed-use
+use App\Domain\User; // We know this violates architecture but it's intentional
 ```
 
 To add a suppression:
@@ -353,7 +376,7 @@ class MyClass {
 
 Baselines are useful when you're adding Mago to an existing project with many existing issues. They let you focus on new problems while ignoring known issues.
 
-1. Run `Mago: Generate Lint Baseline` and/or `Mago: Generate Analysis Baseline` to create baseline files
+1. Run `Mago: Generate Lint Baseline`, `Mago: Generate Analysis Baseline`, and/or `Mago: Generate Guard Baseline` to create baseline files
 2. Enable baseline usage in your settings:
    ```json
    {
@@ -361,6 +384,8 @@ Baselines are useful when you're adding Mago to an existing project with many ex
    }
    ```
 3. Only new issues will be reported going forward
+
+**Note**: Each command (lint, analyze, guard) has its own baseline file. You can generate baselines for all three, or just the ones you need.
 
 ## Troubleshooting
 
@@ -419,4 +444,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Related Projects
 
-- [Mago](https://github.com/carthage-software/mago) - The PHP linter and static analyzer that powers this extension
+- [Mago](https://github.com/carthage-software/mago) - The PHP linter, static analyzer, and architectural guard that powers this extension
