@@ -2,7 +2,7 @@
   "name": "mago-vscode",
   "displayName": "Mago",
   "description": "Mago integration for VSCode",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "publisher": "Michael4d45",
   "license": "MIT",
   "repository": {
