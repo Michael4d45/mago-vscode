@@ -601,6 +601,18 @@ async function lintFix(safetyLevel: 'safe' | 'unsafe' | 'potentially-unsafe'): P
       const issuesFixed = result.issues?.length || 0;
       if (issuesFixed > 0) {
         window.showInformationMessage(`Mago: Applied ${issuesFixed} fix(es) with ${safetyLevel} safety level.`);
+
+        // Re-run scan if scanOnSave is enabled (since lint fixes may have changed the code)
+        const runOnSave = config.get<boolean>('runOnSave', true);
+        if (runOnSave) {
+          setTimeout(async () => {
+            try {
+              await scanProject();
+            } catch (scanError) {
+              outputChannel?.appendLine(`[WARN] Failed to re-scan after lint fix: ${scanError}`);
+            }
+          }, 100); // Small delay to allow UI to update
+        }
       } else {
         window.showInformationMessage('Mago: No issues to fix.');
       }
