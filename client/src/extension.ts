@@ -82,6 +82,7 @@ interface MagoIssue {
 
 interface MagoResult {
   issues: MagoIssue[];
+  fixesApplied?: number;
 }
 
 export function activate(context: ExtensionContext) {
@@ -598,9 +599,10 @@ async function lintFix(safetyLevel: 'safe' | 'unsafe' | 'potentially-unsafe'): P
     const result = await runMago(lintArgs);
 
     if (result) {
-      const issuesFixed = result.issues?.length || 0;
-      if (issuesFixed > 0) {
-        window.showInformationMessage(`Mago: Applied ${issuesFixed} fix(es) with ${safetyLevel} safety level.`);
+      const fixesApplied = result.fixesApplied || 0;
+
+      if (fixesApplied > 0) {
+        window.showInformationMessage(`Mago: Applied ${fixesApplied} fix(es) with ${safetyLevel} safety level.`);
 
         // Re-run scan if scanOnSave is enabled (since lint fixes may have changed the code)
         const runOnSave = config.get<boolean>('runOnSave', true);
@@ -614,7 +616,9 @@ async function lintFix(safetyLevel: 'safe' | 'unsafe' | 'potentially-unsafe'): P
           }, 100); // Small delay to allow UI to update
         }
       } else {
-        window.showInformationMessage('Mago: No issues to fix.');
+        // No fixes were applied - could be no issues found, or issues were skipped due to safety level
+        // Don't show a popup message to avoid noise, but log to output channel
+        outputChannel?.appendLine(`[INFO] Lint fix completed with ${safetyLevel} safety level. No fixes were applied.`);
       }
     }
   } catch (error) {
@@ -753,6 +757,46 @@ async function runMago(args: string[]): Promise<MagoResult | null> {
     proc.on('close', (code) => {
       runningProcess = undefined;
       outputChannel?.appendLine(`[INFO] Mago process exited with code: ${code}`);
+
+      // Check if this is a fix command (which outputs human-readable messages, not JSON)
+      const isFixCommand = args.includes('--fix');
+
+      if (isFixCommand) {
+        // Handle fix command output (human-readable, not JSON)
+        if (code !== 0) {
+          if (stderr) {
+            outputChannel?.appendLine(`[WARN] Mago stderr: ${stderr}`);
+          }
+          reject(new Error(`Mago fix failed with exit code ${code}`));
+          return;
+        }
+
+        // Parse fix command output - check both stdout and stderr since Mago may write to either
+        let fixesApplied = 0;
+        const combinedOutput = (stdout + stderr).trim();
+
+        if (combinedOutput.includes('Successfully applied')) {
+          const match = combinedOutput.match(/Successfully applied (\d+) fixes/);
+          if (match) {
+            fixesApplied = parseInt(match[1], 10);
+          }
+        } else if (combinedOutput.includes('No fixes were applied')) {
+          // If it explicitly says no fixes were applied, keep fixesApplied as 0
+          fixesApplied = 0;
+        } else if (combinedOutput.includes('applied') && combinedOutput.includes('fix')) {
+          // Check for any other indication of fixes applied
+          const match = combinedOutput.match(/applied (\d+) fix/);
+          if (match) {
+            fixesApplied = parseInt(match[1], 10);
+          }
+        }
+
+        // For fix commands, we return a result with empty issues array
+        // since the fixes were applied and remaining issues would need a separate lint run
+        outputChannel?.appendLine(`[INFO] Fix command completed. Applied ${fixesApplied} fixes.`);
+        resolve({ issues: [], fixesApplied });
+        return;
+      }
 
       if (code !== 0 && stderr) {
         outputChannel?.appendLine(`[WARN] Mago stderr: ${stderr}`);
