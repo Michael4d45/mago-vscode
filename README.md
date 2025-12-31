@@ -292,7 +292,7 @@ Or to scan only the saved file:
 | `mago.analysisBaseline` | string | `"analysis-baseline.toml"` | Path to analysis baseline file (supports workspace variables) |
 | `mago.enableFormat` | boolean | `true` | Enable formatting functionality |
 | `mago.formatOnSave` | boolean | `false` | Format PHP files automatically when saved |
-| `mago.formatAfterLintFix` | boolean | `false` | Format files after applying lint fixes. Requires --fix to be enabled. |
+| `mago.formatAfterLintFix` | boolean | `true` | Automatically format files after applying lint fixes. |
 
 ## Commands
 

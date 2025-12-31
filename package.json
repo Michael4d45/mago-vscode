@@ -155,7 +155,7 @@
         "mago.formatAfterLintFix": {
           "type": "boolean",
           "default": true,
-          "description": "Format files after applying lint fixes. Requires --fix to be enabled."
+          "description": "Automatically format files after applying lint fixes."
         }
       }
     },
