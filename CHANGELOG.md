@@ -5,6 +5,12 @@ All notable changes to the Mago VSCode extension will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2025-12-31
+
+### Added
+- **Auto-Scan After Lint Fixes**: Automatically re-scan files after applying lint fixes when `mago.runOnSave` is enabled
+- **Improved Setting Descriptions**: Updated `mago.formatAfterLintFix` description for clarity
+
 ## [0.1.5] - 2025-12-31
 
 ### Added
