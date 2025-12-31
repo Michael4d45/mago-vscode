@@ -9,6 +9,9 @@ export const COMMANDS = {
   FORMAT_DOCUMENT: 'mago.formatDocument',
   FORMAT_PROJECT: 'mago.formatProject',
   FORMAT_STAGED: 'mago.formatStaged',
+  LINT_FIX: 'mago.lintFix',
+  LINT_FIX_UNSAFE: 'mago.lintFixUnsafe',
+  LINT_FIX_POTENTIALLY_UNSAFE: 'mago.lintFixPotentiallyUnsafe',
 } as const;
 
 export type CommandType = typeof COMMANDS[keyof typeof COMMANDS];

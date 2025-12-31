@@ -162,6 +162,18 @@ export function activate(context: ExtensionContext) {
       await formatStaged();
     }),
 
+    commands.registerCommand(COMMANDS.LINT_FIX, async () => {
+      await lintFix('safe');
+    }),
+
+    commands.registerCommand(COMMANDS.LINT_FIX_UNSAFE, async () => {
+      await lintFix('unsafe');
+    }),
+
+    commands.registerCommand(COMMANDS.LINT_FIX_POTENTIALLY_UNSAFE, async () => {
+      await lintFix('potentially-unsafe');
+    }),
+
     commands.registerCommand('mago.applyFix', async (issue: MagoIssue, uri: Uri) => {
       await applyMagoFix(issue, uri);
     }),
@@ -539,6 +551,63 @@ async function scanProject(): Promise<void> {
   } catch (error) {
     window.showErrorMessage(`Mago: Failed to scan project - ${error}`);
     outputChannel?.appendLine(`[ERROR] Mago scan error: ${error}`);
+    if (error instanceof Error) {
+      outputChannel?.appendLine(`[ERROR] Stack: ${error.stack}`);
+    }
+  } finally {
+    updateStatusBar('idle');
+  }
+}
+
+async function lintFix(safetyLevel: 'safe' | 'unsafe' | 'potentially-unsafe'): Promise<void> {
+  const workspaceFolder = workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) {
+    window.showWarningMessage('Mago: No workspace folder open.');
+    return;
+  }
+
+  updateStatusBar('running');
+
+  try {
+    const config = workspace.getConfiguration('mago');
+    const workspaceRoot = workspaceFolder.uri.fsPath;
+
+    // Build lint args
+    const lintArgs = ['lint', '--fix'];
+    if (safetyLevel === 'unsafe') {
+      lintArgs.push('--unsafe');
+    } else if (safetyLevel === 'potentially-unsafe') {
+      lintArgs.push('--potentially-unsafe');
+    }
+
+    // Add format after fix if enabled
+    const formatAfterFix = config.get<boolean>('formatAfterLintFix', false);
+    if (formatAfterFix) {
+      lintArgs.push('--format-after-fix');
+    }
+
+    // Use baselines if configured
+    const useBaselines = config.get<boolean>('useBaselines', false);
+    if (useBaselines) {
+      const lintBaseline = config.get<string>('lintBaseline', 'lint-baseline.toml');
+      const baselinePath = resolvePath(lintBaseline, workspaceRoot);
+      lintArgs.push('--baseline', baselinePath);
+    }
+
+    // Run the lint fix command
+    const result = await runMago(lintArgs);
+
+    if (result) {
+      const issuesFixed = result.issues?.length || 0;
+      if (issuesFixed > 0) {
+        window.showInformationMessage(`Mago: Applied ${issuesFixed} fix(es) with ${safetyLevel} safety level.`);
+      } else {
+        window.showInformationMessage('Mago: No issues to fix.');
+      }
+    }
+  } catch (error) {
+    window.showErrorMessage(`Mago: Failed to apply lint fixes - ${error}`);
+    outputChannel?.appendLine(`[ERROR] Lint fix error: ${error}`);
     if (error instanceof Error) {
       outputChannel?.appendLine(`[ERROR] Stack: ${error.stack}`);
     }

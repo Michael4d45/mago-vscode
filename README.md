@@ -21,6 +21,7 @@ A powerful VSCode extension that seamlessly integrates [Mago](https://github.com
 - **Automatic Scanning**: Automatically scans your project when you open it and checks files when you save them (configurable to scan single file or whole project)
 - **Inline Diagnostics**: Shows errors and warnings directly in your code with helpful information and code hints
 - **Quick Fixes**: One-click fixes for many issues—apply Mago's suggested fixes, suppress warnings with `@mago-expect`, or add format ignore directives
+- **Automatic Lint Fixes**: Apply automatic fixes for linting issues with three safety levels: safe, potentially unsafe, and unsafe
 - **Format Ignore Directives**: Right-click on selected code to easily exclude it from formatting with `@mago-format-ignore-next`, `@mago-format-ignore-start/end`, or file-level `@mago-format-ignore`
 - **Status Bar Integration**: Displays analysis status in VSCode's status bar
 - **Code Formatting**: Format PHP files on save or via commands (can be set as default formatter)
@@ -84,6 +85,33 @@ Many issues can be fixed instantly with VSCode's Quick Fix feature:
   - **@mago-format-ignore** - Ignores formatting for the entire file
 
 Quick fixes and context menu actions make it easy to resolve issues and control formatting without manually editing code or searching for the right syntax.
+
+## Automatic Lint Fixes
+
+In addition to individual quick fixes for specific issues, you can apply automatic fixes across your entire project using the lint fix commands. These commands run `mago lint --fix` with different safety levels:
+
+### Safety Levels
+
+- **Safe Fixes** (`Mago: Lint Fix`) - Only applies fixes that are guaranteed to be safe and won't change your code's behavior
+- **Potentially Unsafe Fixes** (`Mago: Lint Fix Potentially Unsafe`) - Includes fixes that are usually safe but may require manual review
+- **Unsafe Fixes** (`Mago: Lint Fix Unsafe`) - Applies all available fixes, including those that may change code behavior
+
+### When to Use Each Level
+
+- **Safe**: Use this for routine cleanup and style fixes. Perfect for automated workflows and CI/CD pipelines.
+- **Potentially Unsafe**: Use when you want more aggressive fixes but still want to review changes carefully.
+- **Unsafe**: Use with caution and always review changes. Best for experienced developers who understand the risks.
+
+### Usage
+
+1. Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`)
+2. Search for and select the appropriate lint fix command
+3. The command will scan your project and apply available fixes
+4. Check the status bar for progress and review the output panel for details
+
+**Tip**: You can set custom key bindings for these commands in VSCode's Keyboard Shortcuts settings (`Ctrl+Shift+P` → "Preferences: Open Keyboard Shortcuts") to make lint fixes even faster.
+
+**Note**: These commands respect your baseline configuration—if baselines are enabled, only new issues will be fixed. They also work with all your other Mago configuration settings like workspace paths and custom binary locations.
 
 ## Configuration
 
@@ -165,6 +193,18 @@ To automatically format PHP files when you save them:
   "mago.formatOnSave": true
 }
 ```
+
+#### Format After Lint Fixes
+
+To automatically format files after applying lint fixes:
+
+```json
+{
+  "mago.formatAfterLintFix": true
+}
+```
+
+This will run the formatter on any files that were modified by the lint fix commands, ensuring consistent code style after fixes are applied.
 
 #### Setting Mago as Default Formatter
 
@@ -252,6 +292,7 @@ Or to scan only the saved file:
 | `mago.analysisBaseline` | string | `"analysis-baseline.toml"` | Path to analysis baseline file (supports workspace variables) |
 | `mago.enableFormat` | boolean | `true` | Enable formatting functionality |
 | `mago.formatOnSave` | boolean | `false` | Format PHP files automatically when saved |
+| `mago.formatAfterLintFix` | boolean | `false` | Format files after applying lint fixes. Requires --fix to be enabled. |
 
 ## Commands
 
@@ -262,6 +303,12 @@ Access these commands via the Command Palette (Ctrl+Shift+P / Cmd+Shift+P):
 - **`Mago: Scan File`** - Scan the currently active PHP file
 - **`Mago: Scan Project`** - Scan the entire project
 - **`Mago: Clear Errors`** - Clear all diagnostics from the editor
+
+### Lint Fix Commands
+
+- **`Mago: Lint Fix`** - Apply automatic fixes for lint issues (safe fixes only)
+- **`Mago: Lint Fix Unsafe`** - Apply automatic fixes including unsafe ones that may change behavior
+- **`Mago: Lint Fix Potentially Unsafe`** - Apply automatic fixes including potentially unsafe ones that require review
 
 ### Baseline Commands
 

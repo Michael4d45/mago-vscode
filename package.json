@@ -2,7 +2,7 @@
   "name": "mago-vscode",
   "displayName": "Mago",
   "description": "Mago integration for VSCode",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publisher": "Michael4d45",
   "license": "MIT",
   "repository": {
@@ -22,17 +22,7 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "onLanguage:php",
-    "onCommand:mago.scanFile",
-    "onCommand:mago.scanProject",
-    "onCommand:mago.clearErrors",
-    "onCommand:mago.generateLintBaseline",
-    "onCommand:mago.generateAnalysisBaseline",
-    "onCommand:mago.generateGuardBaseline",
-    "onCommand:mago.formatFile",
-    "onCommand:mago.formatDocument",
-    "onCommand:mago.formatProject",
-    "onCommand:mago.formatStaged"
+    "onLanguage:php"
   ],
   "main": "./out/client/src/extension.js",
   "contributes": {
@@ -161,6 +151,11 @@
           "type": "boolean",
           "default": false,
           "description": "Format PHP files automatically when saved"
+        },
+        "mago.formatAfterLintFix": {
+          "type": "boolean",
+          "default": true,
+          "description": "Format files after applying lint fixes. Requires --fix to be enabled."
         }
       }
     },
@@ -216,6 +211,21 @@
         "category": "Mago"
       },
       {
+        "command": "mago.lintFix",
+        "title": "Lint Fix",
+        "category": "Mago"
+      },
+      {
+        "command": "mago.lintFixUnsafe",
+        "title": "Lint Fix Unsafe",
+        "category": "Mago"
+      },
+      {
+        "command": "mago.lintFixPotentiallyUnsafe",
+        "title": "Lint Fix Potentially Unsafe",
+        "category": "Mago"
+      },
+      {
         "command": "mago.addFormatIgnoreNext",
         "title": "Add @mago-format-ignore-next",
         "category": "Mago"
@@ -265,6 +275,15 @@
         },
         {
           "command": "mago.formatStaged"
+        },
+        {
+          "command": "mago.lintFix"
+        },
+        {
+          "command": "mago.lintFixUnsafe"
+        },
+        {
+          "command": "mago.lintFixPotentiallyUnsafe"
         },
         {
           "command": "mago.addFormatIgnoreNext",
