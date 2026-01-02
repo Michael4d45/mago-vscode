@@ -2,7 +2,7 @@
 
 A powerful VSCode extension that seamlessly integrates [Mago](https://github.com/carthage-software/mago)'s advanced linting, static analysis, and architectural guard tools into your PHP development workflow. Get real-time feedback, automatic fixes, and professional code formatting—all without leaving your editor.
 
-![Timeline comparison of intelephense, mago, and phpstan](Timeline.gif)
+![Timeline comparison of intelephense, mago, and phpstan](media/Timeline.gif)
 
 (Mago is running on a single file for lint and analyze, the auto save is on a 1000ms delay. I'm sure the VS Code extension setup has some overhead, see [here](https://mago.carthage.software/benchmarks) for their benchmarks.)
 
@@ -25,6 +25,9 @@ warnings with `@mago-expect`, or add format ignore directives. Disable specific 
 - **Automatic Lint Fixes**: Apply automatic fixes for linting issues with three safety levels: safe, potentially unsafe, and unsafe
 - **Format Ignore Directives**: Right-click on selected code to easily exclude it from formatting with `@mago-format-ignore-next`, `@mago-format-ignore-start/end`, or file-level `@mago-format-ignore`
 - **Status Bar Integration**: Displays analysis status in VSCode's status bar
+
+  ![Screenshot showing Mago status in VSCode status bar](media/status-bar-integration.png)
+
 - **Code Formatting**: Format PHP files on save or via commands (can be set as default formatter)
 - **Separate Lint, Analysis, and Guard**: Enable or disable linting, static analysis, and architectural guard independently
 - **Architectural Guard**: Enforce architectural rules and layer dependencies to maintain clean architecture
@@ -71,6 +74,8 @@ Hovering over an issue shows the full message, error code, and any help text pro
 ### Quick Fixes
 
 Many issues can be fixed instantly with VSCode's Quick Fix feature:
+
+![Screenshot showing the quick fix lightbulb icon and available options](media/quick-fix-menu.png)
 
 1. **Hover over an issue** or place your cursor on it
 2. **Click the lightbulb icon** (💡) or press `Ctrl+.` (Cmd+. on Mac)
@@ -299,6 +304,8 @@ Or to scan only the saved file:
 ## Commands
 
 Access these commands via the Command Palette (Ctrl+Shift+P / Cmd+Shift+P):
+
+![Screenshot showing Command Palette with Mago commands](media/command-palette-mago.png)
 
 ### Scanning Commands
 
