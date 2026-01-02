@@ -5,6 +5,31 @@ All notable changes to the Mago VSCode extension will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2025-12-31
+
+### Added
+- **File-Specific Lint Fix Commands**: Added targeted lint fix commands that operate only on the currently active PHP file
+  - `Mago: Lint Fix File` - Apply safe fixes to the current file only
+  - `Mago: Lint Fix File Potentially Unsafe` - Apply potentially unsafe fixes to the current file only
+  - `Mago: Lint Fix File Unsafe` - Apply all fixes to the current file only
+  - Context menu integration for easy access on PHP files
+- **Rule Disabling in Configuration**: Added quick fix option to disable rules project-wide in `mago.toml`
+  - "Disable rule in config" option appears in quick fixes when `mago.toml` exists
+  - Automatically formats rules correctly for lint vs analyzer sections
+  - Updates existing rule entries or adds new ones as needed
+
+### Changed
+- **Asset Organization**: Reorganized media assets into dedicated `media/` folder
+  - Moved icon and images to `media/` directory
+  - Updated package.json icon path to `media/icon.png`
+  - Updated documentation image references
+
+### Improved
+- **Documentation Enhancements**: Comprehensive README updates with new screenshots and detailed feature explanations
+  - Added screenshots for status bar, quick fixes, and command palette
+  - Enhanced command descriptions and usage examples
+  - Better organization of feature sections
+
 ## [0.1.7] - 2025-12-31
 
 ### Fixed
