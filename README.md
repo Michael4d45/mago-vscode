@@ -120,6 +120,16 @@ In addition to individual quick fixes for specific issues, you can apply automat
 
 **Note**: These commands respect your baseline configuration—if baselines are enabled, only new issues will be fixed. They also work with all your other Mago configuration settings like workspace paths and custom binary locations.
 
+### File-Specific Commands
+
+For more targeted fixes, you can apply lint fixes to only the currently active PHP file instead of the entire project:
+
+- **`Mago: Lint Fix File`** - Apply safe fixes to the current file only
+- **`Mago: Lint Fix File Potentially Unsafe`** - Apply potentially unsafe fixes to the current file only
+- **`Mago: Lint Fix File Unsafe`** - Apply all fixes (including unsafe ones) to the current file only
+
+These commands are only available when you have a PHP file open and active in the editor. They provide the same safety levels as the project-wide commands but operate much faster since they only process a single file.
+
 ## Configuration
 
 You can configure the extension through VSCode's settings UI (File → Preferences → Settings) or by editing your `settings.json` file.
@@ -315,9 +325,12 @@ Access these commands via the Command Palette (Ctrl+Shift+P / Cmd+Shift+P):
 
 ### Lint Fix Commands
 
-- **`Mago: Lint Fix`** - Apply automatic fixes for lint issues (safe fixes only)
-- **`Mago: Lint Fix Unsafe`** - Apply automatic fixes including unsafe ones that may change behavior
-- **`Mago: Lint Fix Potentially Unsafe`** - Apply automatic fixes including potentially unsafe ones that require review
+- **`Mago: Lint Fix`** - Apply automatic fixes for lint issues across the entire project (safe fixes only)
+- **`Mago: Lint Fix Unsafe`** - Apply automatic fixes across the entire project including unsafe ones that may change behavior
+- **`Mago: Lint Fix Potentially Unsafe`** - Apply automatic fixes across the entire project including potentially unsafe ones that require review
+- **`Mago: Lint Fix File`** - Apply automatic fixes for lint issues to the currently active PHP file only (safe fixes only)
+- **`Mago: Lint Fix File Unsafe`** - Apply automatic fixes to the currently active PHP file only including unsafe ones that may change behavior
+- **`Mago: Lint Fix File Potentially Unsafe`** - Apply automatic fixes to the currently active PHP file only including potentially unsafe ones that require review
 
 ### Baseline Commands
 

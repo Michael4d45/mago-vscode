@@ -176,6 +176,33 @@ export function activate(context: ExtensionContext) {
       await lintFix('potentially-unsafe');
     }),
 
+    commands.registerCommand('mago.lintFixFile', async () => {
+      const activeEditor = window.activeTextEditor;
+      if (activeEditor && activeEditor.document.languageId === 'php') {
+        await lintFixFile(activeEditor.document, 'safe');
+      } else {
+        window.showWarningMessage('Mago: Please open a PHP file to apply lint fixes.');
+      }
+    }),
+
+    commands.registerCommand('mago.lintFixFileUnsafe', async () => {
+      const activeEditor = window.activeTextEditor;
+      if (activeEditor && activeEditor.document.languageId === 'php') {
+        await lintFixFile(activeEditor.document, 'unsafe');
+      } else {
+        window.showWarningMessage('Mago: Please open a PHP file to apply lint fixes.');
+      }
+    }),
+
+    commands.registerCommand('mago.lintFixFilePotentiallyUnsafe', async () => {
+      const activeEditor = window.activeTextEditor;
+      if (activeEditor && activeEditor.document.languageId === 'php') {
+        await lintFixFile(activeEditor.document, 'potentially-unsafe');
+      } else {
+        window.showWarningMessage('Mago: Please open a PHP file to apply lint fixes.');
+      }
+    }),
+
     commands.registerCommand('mago.applyFix', async (issue: MagoIssue, uri: Uri) => {
       await applyMagoFix(issue, uri);
     }),
@@ -632,6 +659,81 @@ async function lintFix(safetyLevel: 'safe' | 'unsafe' | 'potentially-unsafe'): P
   } catch (error) {
     window.showErrorMessage(`Mago: Failed to apply lint fixes - ${error}`);
     outputChannel?.appendLine(`[ERROR] Lint fix error: ${error}`);
+    if (error instanceof Error) {
+      outputChannel?.appendLine(`[ERROR] Stack: ${error.stack}`);
+    }
+  } finally {
+    updateStatusBar('idle');
+  }
+}
+
+async function lintFixFile(document: TextDocument, safetyLevel: 'safe' | 'unsafe' | 'potentially-unsafe'): Promise<void> {
+  if (!document.uri.fsPath.endsWith('.php')) {
+    window.showWarningMessage('Mago: Can only apply lint fixes to PHP files.');
+    return;
+  }
+
+  updateStatusBar('running');
+
+  try {
+    const config = workspace.getConfiguration('mago');
+    const workspaceFolder = workspace.workspaceFolders?.[0];
+    const workspaceRoot = workspaceFolder?.uri.fsPath || process.cwd();
+
+    // Build lint args
+    const lintArgs = ['lint', '--fix'];
+    if (safetyLevel === 'unsafe') {
+      lintArgs.push('--unsafe');
+    } else if (safetyLevel === 'potentially-unsafe') {
+      lintArgs.push('--potentially-unsafe');
+    }
+
+    // Add the specific file path
+    lintArgs.push(document.uri.fsPath);
+
+    // Add format after fix if enabled
+    const formatAfterFix = config.get<boolean>('formatAfterLintFix', true);
+    if (formatAfterFix) {
+      lintArgs.push('--format-after-fix');
+    }
+
+    // Use baselines if configured
+    const useBaselines = config.get<boolean>('useBaselines', false);
+    if (useBaselines) {
+      const lintBaseline = config.get<string>('lintBaseline', 'lint-baseline.toml');
+      const baselinePath = resolvePath(lintBaseline, workspaceRoot);
+      lintArgs.push('--baseline', baselinePath);
+    }
+
+    // Run the lint fix command
+    const result = await runMago(lintArgs);
+
+    if (result) {
+      const fixesApplied = result.fixesApplied || 0;
+
+      if (fixesApplied > 0) {
+        window.showInformationMessage(`Mago: Applied ${fixesApplied} fix(es) to ${document.fileName} with ${safetyLevel} safety level.`);
+
+        // Re-run scan if scanOnSave is enabled (since lint fixes may have changed the code)
+        const runOnSave = config.get<boolean>('runOnSave', true);
+        if (runOnSave) {
+          setTimeout(async () => {
+            try {
+              await scanFile(document);
+            } catch (scanError) {
+              outputChannel?.appendLine(`[WARN] Failed to re-scan file after lint fix: ${scanError}`);
+            }
+          }, 100); // Small delay to allow UI to update
+        }
+      } else {
+        // No fixes were applied - could be no issues found, or issues were skipped due to safety level
+        // Don't show a popup message to avoid noise, but log to output channel
+        outputChannel?.appendLine(`[INFO] Lint fix completed on ${document.fileName} with ${safetyLevel} safety level. No fixes were applied.`);
+      }
+    }
+  } catch (error) {
+    window.showErrorMessage(`Mago: Failed to apply lint fixes to file - ${error}`);
+    outputChannel?.appendLine(`[ERROR] Lint fix file error: ${error}`);
     if (error instanceof Error) {
       outputChannel?.appendLine(`[ERROR] Stack: ${error.stack}`);
     }

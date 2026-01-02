@@ -16,7 +16,7 @@
   "engines": {
     "vscode": "^1.90.0"
   },
-  "icon": "icon.png",
+  "icon": "media/icon.png",
   "categories": [
     "Linters",
     "Programming Languages"
@@ -226,6 +226,21 @@
         "category": "Mago"
       },
       {
+        "command": "mago.lintFixFile",
+        "title": "Lint Fix File",
+        "category": "Mago"
+      },
+      {
+        "command": "mago.lintFixFileUnsafe",
+        "title": "Lint Fix File Unsafe",
+        "category": "Mago"
+      },
+      {
+        "command": "mago.lintFixFilePotentiallyUnsafe",
+        "title": "Lint Fix File Potentially Unsafe",
+        "category": "Mago"
+      },
+      {
         "command": "mago.addFormatIgnoreNext",
         "title": "Add @mago-format-ignore-next",
         "category": "Mago"
@@ -282,9 +297,21 @@
         {
           "command": "mago.lintFixUnsafe"
         },
-        {
-          "command": "mago.lintFixPotentiallyUnsafe"
-        },
+      {
+        "command": "mago.lintFixPotentiallyUnsafe"
+      },
+      {
+        "command": "mago.lintFixFile",
+        "when": "resourceExtname == .php"
+      },
+      {
+        "command": "mago.lintFixFileUnsafe",
+        "when": "resourceExtname == .php"
+      },
+      {
+        "command": "mago.lintFixFilePotentiallyUnsafe",
+        "when": "resourceExtname == .php"
+      },
         {
           "command": "mago.addFormatIgnoreNext",
           "when": "resourceExtname == .php"
