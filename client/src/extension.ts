@@ -1,5 +1,6 @@
 import { spawn, ChildProcess } from 'child_process';
 import * as fs from 'fs';
+import * as path from 'path';
 import {
   ExtensionContext,
   workspace,
@@ -241,6 +242,13 @@ export function activate(context: ExtensionContext) {
       }
       
       await addFormatIgnoreRegion(doc, selectionRange);
+    }),
+
+    commands.registerCommand('mago.disableRule', async (
+      category: string,
+      ruleCode: string
+    ) => {
+      await disableRuleInConfig(category, ruleCode);
     }),
   );
 
@@ -1604,6 +1612,30 @@ class MagoCodeActionProvider implements CodeActionProvider {
         arguments: [document, issueLine, 'expect', suppressionCode],
       };
       actions.push(expectAction);
+
+      // Add "Disable rule in config" action (only if mago.toml exists)
+      const workspaceFolder = workspace.workspaceFolders?.[0];
+      if (workspaceFolder) {
+        const configPath = path.join(workspaceFolder.uri.fsPath, 'mago.toml');
+        try {
+          // Check if mago.toml exists synchronously (this is okay for a quick check in UI code)
+          if (fs.existsSync(configPath)) {
+            const disableAction = new CodeAction(
+              `Disable rule in config: ${issue.code}`,
+              CodeActionKind.QuickFix
+            );
+            disableAction.diagnostics = [diagnostic];
+            disableAction.command = {
+              command: 'mago.disableRule',
+              title: 'Disable rule in mago.toml',
+              arguments: [issue.category || 'lint', issue.code],
+            };
+            actions.push(disableAction);
+          }
+        } catch {
+          // If we can't check the file, don't show the action
+        }
+      }
     }
 
     // Always return actions if we have any (including format ignore actions)
@@ -1834,6 +1866,104 @@ async function addFormatIgnoreRegion(
   } catch (error) {
     window.showErrorMessage(`Mago: Failed to add format ignore region - ${error}`);
     outputChannel?.appendLine(`[ERROR] Add format ignore region error: ${error}`);
+    if (error instanceof Error) {
+      outputChannel?.appendLine(`[ERROR] Stack: ${error.stack}`);
+    }
+  }
+}
+
+// Disable rule in mago.toml configuration
+async function disableRuleInConfig(category: string, ruleCode: string): Promise<void> {
+  try {
+    const workspaceFolder = workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      window.showWarningMessage('Mago: No workspace folder open.');
+      return;
+    }
+
+    const configPath = path.join(workspaceFolder.uri.fsPath, 'mago.toml');
+    const configUri = Uri.file(configPath);
+
+    // Check if mago.toml exists
+    try {
+      await workspace.fs.stat(configUri);
+    } catch {
+      window.showWarningMessage('Mago: mago.toml not found in workspace root.');
+      return;
+    }
+
+    // Read current config
+    const content = await workspace.fs.readFile(configUri);
+    const configText = Buffer.from(content).toString('utf8');
+    const lines = configText.split('\n');
+
+    // Determine the target section and rule format
+    const isAnalyzer = category === 'analysis';
+    const targetSection = isAnalyzer ? '[analyzer]' : '[linter.rules]';
+    const ruleFormat = isAnalyzer ? `${ruleCode} = false` : `${ruleCode} = { enabled = false }`;
+
+    // Find the target section
+    let sectionStart = -1;
+    let nextSectionStart = -1;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line === targetSection) {
+        sectionStart = i;
+      } else if (line.startsWith('[') && line.endsWith(']') && sectionStart !== -1) {
+        nextSectionStart = i;
+        break;
+      }
+    }
+
+    if (sectionStart === -1) {
+      window.showWarningMessage(`Mago: ${targetSection} section not found in mago.toml.`);
+      return;
+    }
+
+    // Find if rule already exists in the section
+    let ruleLineIndex = -1;
+    const rulePattern = new RegExp(`^${ruleCode}\\s*=`);
+    let sectionEnd = nextSectionStart !== -1 ? nextSectionStart : lines.length;
+
+    for (let i = sectionStart + 1; i < sectionEnd; i++) {
+      if (rulePattern.test(lines[i].trim())) {
+        ruleLineIndex = i;
+        break;
+      }
+    }
+
+    const edit = new WorkspaceEdit();
+
+    if (ruleLineIndex !== -1) {
+      // Update existing rule
+      const position = new Position(ruleLineIndex, 0);
+      const range = new Range(position, new Position(ruleLineIndex, lines[ruleLineIndex].length));
+      edit.replace(configUri, range, ruleFormat);
+    } else {
+      // Add new rule to section
+      // Find the last non-empty line in the section
+      let insertLine = sectionEnd - 1;
+      while (insertLine > sectionStart && lines[insertLine].trim() === '') {
+        insertLine--;
+      }
+
+      // Insert after the last non-empty line, with a blank line if needed
+      const position = new Position(insertLine + 1, 0);
+      const prefix = insertLine === sectionStart ? '' : '\n';
+      edit.insert(configUri, position, `${prefix}${ruleFormat}\n`);
+    }
+
+    const applied = await workspace.applyEdit(edit);
+
+    if (applied) {
+      window.showInformationMessage(`Mago: Disabled rule '${ruleCode}' in mago.toml.`);
+    } else {
+      window.showWarningMessage('Mago: Failed to disable rule.');
+    }
+  } catch (error) {
+    window.showErrorMessage(`Mago: Failed to disable rule - ${error}`);
+    outputChannel?.appendLine(`[ERROR] Disable rule error: ${error}`);
     if (error instanceof Error) {
       outputChannel?.appendLine(`[ERROR] Stack: ${error.stack}`);
     }

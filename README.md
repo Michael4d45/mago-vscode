@@ -19,8 +19,9 @@ A powerful VSCode extension that seamlessly integrates [Mago](https://github.com
 ## Features
 
 - **Automatic Scanning**: Automatically scans your project when you open it and checks files when you save them (configurable to scan single file or whole project)
-- **Inline Diagnostics**: Shows errors and warnings directly in your code with helpful information and code hints
-- **Quick Fixes**: One-click fixes for many issues—apply Mago's suggested fixes, suppress warnings with `@mago-expect`, or add format ignore directives
+- **Inline Diagnostics**: Shows errors and warnings directly in your code with helpful information and code hints- 
+- **Quick Fixes**: One-click fixes for many issues—apply Mago's suggested fixes, suppress 
+warnings with `@mago-expect`, or add format ignore directives. Disable specific rules project-wide through quick fixes that update your `mago.toml` configuration
 - **Automatic Lint Fixes**: Apply automatic fixes for linting issues with three safety levels: safe, potentially unsafe, and unsafe
 - **Format Ignore Directives**: Right-click on selected code to easily exclude it from formatting with `@mago-format-ignore-next`, `@mago-format-ignore-start/end`, or file-level `@mago-format-ignore`
 - **Status Bar Integration**: Displays analysis status in VSCode's status bar
@@ -75,6 +76,7 @@ Many issues can be fixed instantly with VSCode's Quick Fix feature:
 2. **Click the lightbulb icon** (💡) or press `Ctrl+.` (Cmd+. on Mac)
 3. **Choose from available fixes**:
    - **Apply fix** - Automatically applies Mago's suggested code changes (when available)
+   - **Disable rule in config** - Adds the rule to `mago.toml` with `enabled = false` (for lint rules) or sets it to `false` (for analyzer rules)
    - **Suppress with @mago-expect** - Adds a comment to expect this specific error code (with category prefix)
 
 **For format ignore directives**, select the code you want to exclude from formatting, then:
@@ -325,7 +327,7 @@ Access these commands via the Command Palette (Ctrl+Shift+P / Cmd+Shift+P):
 
 ## Quick Fixes
 
-The extension provides powerful quick fix capabilities that let you resolve issues with a single click:
+The extension provides powerful quick fix capabilities that let you resolve issues with a single click, including applying automatic fixes, disabling rules project-wide, suppressing individual issues, and controlling formatting:
 
 ### Applying Automatic Fixes
 
@@ -365,6 +367,29 @@ To add a suppression:
 3. Select **"Suppress with @mago-expect [category:code]"**
 
 The appropriate comment is automatically added above the line with the correct category and code.
+
+### Disabling Rules in Configuration
+
+When you want to disable a specific rule across your entire project instead of suppressing individual instances, you can disable the rule in your `mago.toml` configuration file:
+
+1. Hover over the issue or click on it
+2. Press `Ctrl+.` (Cmd+. on Mac) or click the lightbulb icon (💡)
+3. Select **"Disable rule in config: [rule-name]"**
+
+This will add the rule to your `mago.toml` file:
+- **Lint rules**: Adds `rule-name = { enabled = false }` to the `[linter.rules]` section
+- **Analyzer rules**: Adds `rule-name = false` to the `[analyzer]` section
+
+If the rule already exists in the configuration, it will update the existing entry instead of adding a duplicate.
+
+**Example**: Disabling the `ambiguous-function-call` lint rule would add this to your `mago.toml`:
+
+```toml
+[linter.rules]
+ambiguous-function-call = { enabled = false }
+```
+
+**Note**: This feature only appears when you have a `mago.toml` file in your workspace root. If no configuration file exists, the option won't be shown.
 
 ### Format Ignore Directives
 
