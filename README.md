@@ -2,7 +2,7 @@
 
 A powerful VSCode extension that seamlessly integrates [Mago](https://github.com/carthage-software/mago)'s advanced linting, static analysis, and architectural guard tools into your PHP development workflow. Get real-time feedback, automatic fixes, and professional code formatting—all without leaving your editor.
 
-![Timeline comparison of intelephense, mago, and phpstan](media/Timeline.gif)
+![Timeline comparison of intelephense, mago, and phpstan](media/timeline.png)
 
 (Mago is running on a single file for lint and analyze, the auto save is on a 1000ms delay. I'm sure the VS Code extension setup has some overhead, see [here](https://mago.carthage.software/benchmarks) for their benchmarks.)
 
