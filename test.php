@@ -38,8 +38,10 @@ function testb()
 
 $unused = 42; // Unused variable
 
-echo test(5);
+// echo test(5);
 
 $test = new Test();
+
+\Mago\inspect($test);
 
 $test->testa(fn() => $test->testb());

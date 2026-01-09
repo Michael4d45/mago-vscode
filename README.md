@@ -19,9 +19,10 @@ A powerful VSCode extension that seamlessly integrates [Mago](https://github.com
 ## Features
 
 - **Automatic Scanning**: Automatically scans your project when you open it and checks files when you save them (configurable to scan single file or whole project)
-- **Inline Diagnostics**: Shows errors and warnings directly in your code with helpful information and code hints- 
-- **Quick Fixes**: One-click fixes for many issues—apply Mago's suggested fixes, suppress 
+- **Inline Diagnostics**: Shows errors and warnings directly in your code with helpful information and code hints-
+- **Quick Fixes**: One-click fixes for many issues—apply Mago's suggested fixes, suppress
 warnings with `@mago-expect`, or add format ignore directives. Disable specific rules project-wide through quick fixes that update your `mago.toml` configuration
+- **Type Inspection**: Debug type information by wrapping expressions with `\Mago\inspect()` and hovering to see detailed type analysis
 - **Automatic Lint Fixes**: Apply automatic fixes for linting issues with three safety levels: safe, potentially unsafe, and unsafe
 - **Format Ignore Directives**: Right-click on selected code to easily exclude it from formatting with `@mago-format-ignore-next`, `@mago-format-ignore-start/end`, or file-level `@mago-format-ignore`
 - **Status Bar Integration**: Displays analysis status in VSCode's status bar
@@ -92,6 +93,43 @@ Many issues can be fixed instantly with VSCode's Quick Fix feature:
   - **@mago-format-ignore** - Ignores formatting for the entire file
 
 Quick fixes and context menu actions make it easy to resolve issues and control formatting without manually editing code or searching for the right syntax.
+
+## Type Inspection
+
+Debug and understand your code's type information with Mago's powerful type inspection feature. Wrap any expression with `\Mago\inspect()` to get detailed type information on hover.
+
+![Screenshot showing type analysis hover information for a \Mago\inspect() call](media/type-analysis-hover.png)
+
+### How to Use Type Inspection
+
+1. **Select an expression** in your PHP code
+2. **Right-click** and select "Wrap with \Mago\inspect", or use the Command Palette (`Ctrl+Shift+P`) and search for "Mago: Wrap with \Mago\inspect"
+3. **Hover over the \Mago\inspect() call** to see detailed type information
+
+The hover tooltip will show:
+- **Variable types** - Exact types of variables and expressions
+- **Function return types** - What functions actually return
+- **Method signatures** - Parameter and return types for method calls
+- **Type constraints** - Generic type bounds and constraints
+- **Union/intersection types** - Complex type combinations
+
+### Example Usage
+
+```php
+$users = getUsersFromDatabase();
+// Wrap with inspect to see what getUsersFromDatabase() returns
+\Mago\inspect($users); // Hover here to see: array<User>
+
+$result = $user->getProfile();
+// See what getProfile() actually returns
+\Mago\inspect($result); // Hover here to see: Profile|null
+
+$filtered = array_filter($users, fn($u) => $u->isActive());
+// Check the type after array operations
+\Mago\inspect($filtered); // Hover here to see: array<User>
+```
+
+**Tip**: Type inspection calls are automatically removed when you commit or deploy, as they're meant only for debugging. The `\Mago\inspect()` function is designed to have no side effects and can safely be left in development code.
 
 ## Automatic Lint Fixes
 
@@ -345,9 +383,13 @@ Access these commands via the Command Palette (Ctrl+Shift+P / Cmd+Shift+P):
 - **`Mago: Format Project`** - Format all PHP files in the project
 - **`Mago: Format Staged Files`** - Format only files staged in git
 
+### Type Inspection Commands
+
+- **`Mago: Wrap with \Mago\inspect`** - Wrap the selected expression with `\Mago\inspect()` to enable type inspection on hover
+
 ## Quick Fixes
 
-The extension provides powerful quick fix capabilities that let you resolve issues with a single click, including applying automatic fixes, disabling rules project-wide, suppressing individual issues, and controlling formatting:
+The extension provides powerful quick fix capabilities that let you resolve issues with a single click, including applying automatic fixes, disabling rules project-wide, suppressing individual issues, controlling formatting, and enabling type inspection:
 
 ### Applying Automatic Fixes
 

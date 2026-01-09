@@ -5,7 +5,20 @@ All notable changes to the Mago VSCode extension will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.8] - 2025-12-31
+## [1.0.0] - 2026-01-09
+
+### Added
+- **Type Inspection**: Powerful debugging feature for understanding type information at runtime
+  - `\Mago\inspect()` function support for wrapping expressions
+  - Hover tooltips showing detailed type information (variable types, function returns, method signatures)
+  - Visual type analysis with union/intersection type support
+  - Context menu integration for easy expression wrapping
+  - Safe for development use - inspect calls have no side effects
+
+### Changed
+- **Version Numbering**: Promoted to stable 1.0.0 release after extensive testing and feature completion
+
+## [0.1.8] - 2026-01-02
 
 ### Added
 - **File-Specific Lint Fix Commands**: Added targeted lint fix commands that operate only on the currently active PHP file

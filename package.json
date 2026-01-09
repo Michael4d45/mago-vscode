@@ -2,7 +2,7 @@
   "name": "mago-vscode",
   "displayName": "Mago",
   "description": "Mago integration for VSCode",
-  "version": "0.1.8",
+  "version": "1.0.0",
   "publisher": "Michael4d45",
   "license": "MIT",
   "repository": {
@@ -254,6 +254,11 @@
         "command": "mago.addFormatIgnoreFile",
         "title": "Add @mago-format-ignore (file-level)",
         "category": "Mago"
+      },
+      {
+        "command": "mago.wrapWithInspect",
+        "title": "Wrap with \\Mago\\inspect",
+        "category": "Mago"
       }
     ],
     "menus": {
@@ -323,6 +328,10 @@
         {
           "command": "mago.addFormatIgnoreFile",
           "when": "resourceExtname == .php"
+        },
+        {
+          "command": "mago.wrapWithInspect",
+          "when": "editorHasSelection && resourceExtname == .php"
         }
       ],
       "editor/context": [
@@ -339,6 +348,11 @@
         {
           "command": "mago.addFormatIgnoreFile",
           "when": "editorLangId == php",
+          "group": "1_modification"
+        },
+        {
+          "command": "mago.wrapWithInspect",
+          "when": "editorHasSelection && editorLangId == php",
           "group": "1_modification"
         }
       ]

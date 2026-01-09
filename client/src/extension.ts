@@ -25,6 +25,9 @@ import {
   CodeActionKind,
   Position,
   CodeActionContext,
+  MarkdownString,
+  Hover,
+  Selection,
 } from 'vscode';
 import { COMMANDS } from '@shared/commands/defs';
 
@@ -55,6 +58,7 @@ interface MagoSpan {
 interface MagoAnnotation {
   kind: string;
   span: MagoSpan;
+  message?: string;
 }
 
 interface MagoEdit {
@@ -277,6 +281,20 @@ export function activate(context: ExtensionContext) {
     ) => {
       await disableRuleInConfig(category, ruleCode);
     }),
+
+    commands.registerCommand('mago.wrapWithInspect', async () => {
+      const activeEditor = window.activeTextEditor;
+      if (!activeEditor || activeEditor.document.languageId !== 'php') {
+        window.showWarningMessage('Mago: Please select text in a PHP file.');
+        return;
+      }
+      const selection = activeEditor.selection;
+      if (selection.isEmpty) {
+        window.showWarningMessage('Mago: Please select some text first.');
+        return;
+      }
+      await wrapWithInspect(activeEditor.document, selection);
+    }),
   );
 
   // Run on save if configured
@@ -354,6 +372,195 @@ export function activate(context: ExtensionContext) {
         providedCodeActionKinds: [CodeActionKind.QuickFix, CodeActionKind.Source]
       }
     )
+  );
+
+  // Register hover provider for type inspection on \Mago\inspect() calls
+  context.subscriptions.push(
+    languages.registerHoverProvider('php', {
+      provideHover: async (document: TextDocument, position: Position): Promise<Hover | undefined> => {
+        // Check if we're hovering over a \Mago\inspect( call
+        const line = document.lineAt(position.line);
+        const lineText = line.text;
+        const cursorCol = position.character;
+        
+        // Look for \Mago\inspect( pattern - find all matches on the line
+        const inspectPattern = /\\Mago\\inspect\s*\(/g;
+        const matches: Array<{ index: number; length: number }> = [];
+        let match;
+        while ((match = inspectPattern.exec(lineText)) !== null) {
+          matches.push({ index: match.index, length: match[0].length });
+        }
+        
+        if (matches.length === 0) {
+          return undefined;
+        }
+        
+        // Find the inspect call that the cursor is closest to or within
+        let bestMatch: { index: number; length: number } | null = null;
+        let minDistance = Infinity;
+        
+        for (const m of matches) {
+          const inspectStart = m.index;
+          const inspectEnd = m.index + m.length;
+          
+          // Check if cursor is within the inspect call (with some tolerance)
+          if (cursorCol >= inspectStart - 3 && cursorCol <= inspectEnd + 100) {
+            const distance = Math.abs(cursorCol - (inspectStart + m.length / 2));
+            if (distance < minDistance) {
+              minDistance = distance;
+              bestMatch = m;
+            }
+          }
+        }
+        
+        if (!bestMatch) {
+          return undefined;
+        }
+        
+        const inspectStart = bestMatch.index;
+        const inspectEnd = bestMatch.index + bestMatch.length;
+        
+        // Run analyze with type-inspection for this file
+        try {
+          updateStatusBar('running');
+          const config = workspace.getConfiguration('mago');
+          const workspaceFolder = workspace.workspaceFolders?.[0];
+          const workspaceRoot = workspaceFolder?.uri.fsPath || process.cwd();
+          
+          // Use relative path format like ./test.php
+          const filePath = document.uri.fsPath;
+          const relativePath = path.relative(workspaceRoot, filePath);
+          const analyzeFile = relativePath.startsWith('..') ? filePath : `./${relativePath}`;
+          
+          // Run analyze with --retain-code=type-inspection
+          const analyzeArgs = ['analyze', '--retain-code=type-inspection', '--reporting-format', 'json', analyzeFile];
+          const result = await runMago(analyzeArgs);
+          
+          if (result && result.issues) {
+            // Calculate the byte offset of the hovered inspect call
+            // Read the file to get accurate byte offsets (Mago uses byte offsets)
+            const filePath = document.uri.fsPath;
+            let fileContent: string;
+            try {
+              fileContent = fs.readFileSync(filePath, 'utf8');
+            } catch {
+              // Fallback to document text if file read fails
+              fileContent = document.getText();
+            }
+            
+            // Calculate byte offset: get all text before the inspect call
+            const lines = fileContent.split('\n');
+            let byteOffset = 0;
+            for (let i = 0; i < position.line; i++) {
+              byteOffset += Buffer.from(lines[i] + '\n', 'utf8').length;
+            }
+            // Add the bytes up to the inspect call on the current line
+            const lineText = lines[position.line] || '';
+            const beforeInspect = lineText.substring(0, inspectStart);
+            byteOffset += Buffer.from(beforeInspect, 'utf8').length;
+            
+            // Find the type-inspection issue that matches this specific inspect call
+            // Match by comparing the Primary annotation's span.start.offset with the hovered position
+            const typeInspectionIssues = result.issues.filter(
+              issue => issue.code === 'type-inspection'
+            );
+            
+            let typeInspectionIssue: MagoIssue | undefined;
+            let bestMatchDistance = Infinity;
+            
+            // Match by comparing byte offsets from Primary annotation spans
+            for (const issue of typeInspectionIssues) {
+              const primaryAnnotation = issue.annotations?.find(a => a.kind === 'Primary');
+              if (primaryAnnotation) {
+                const issueLine = primaryAnnotation.span.start.line;
+                const issueStartOffset = primaryAnnotation.span.start.offset;
+                
+                // First check if it's on the same line
+                if (issueLine === position.line) {
+                  // Calculate distance between hovered offset and issue offset
+                  const distance = Math.abs(byteOffset - issueStartOffset);
+                  
+                  // Find the closest match (within reasonable range, e.g., 50 bytes)
+                  if (distance < 50 && distance < bestMatchDistance) {
+                    bestMatchDistance = distance;
+                    typeInspectionIssue = issue;
+                  }
+                }
+              }
+            }
+            
+            // If no match on same line, try matching by offset only (in case line numbers differ slightly)
+            if (!typeInspectionIssue) {
+              for (const issue of typeInspectionIssues) {
+                const primaryAnnotation = issue.annotations?.find(a => a.kind === 'Primary');
+                if (primaryAnnotation) {
+                  const issueStartOffset = primaryAnnotation.span.start.offset;
+                  const distance = Math.abs(byteOffset - issueStartOffset);
+                  
+                  if (distance < 100 && distance < bestMatchDistance) {
+                    bestMatchDistance = distance;
+                    typeInspectionIssue = issue;
+                  }
+                }
+              }
+            }
+            
+            if (typeInspectionIssue) {
+              // Extract type information from annotations
+              const typeInfo: string[] = [];
+              
+              // Secondary annotations show the type information
+              const secondaryAnnotations = typeInspectionIssue.annotations?.filter(a => a.kind === 'Secondary') || [];
+              
+              if (secondaryAnnotations.length > 0) {
+                typeInfo.push('**Type Information:**');
+                for (const annotation of secondaryAnnotations) {
+                  if (annotation.message) {
+                    typeInfo.push(`- ${annotation.message}`);
+                  }
+                }
+              } else {
+                typeInfo.push('**Type Inspection Point**');
+              }
+              
+              // Add notes if available
+              if (typeInspectionIssue.notes && typeInspectionIssue.notes.length > 0) {
+                typeInfo.push('');
+                typeInfo.push('**Notes:**');
+                for (const note of typeInspectionIssue.notes) {
+                  typeInfo.push(`- ${note}`);
+                }
+              }
+              
+              // Add help if available
+              if (typeInspectionIssue.help) {
+                typeInfo.push('');
+                typeInfo.push(`*${typeInspectionIssue.help}*`);
+              }
+              
+              // Create hover content
+              const markdown = new MarkdownString(typeInfo.join('\n'));
+              markdown.isTrusted = true;
+              
+              // Create hover range covering the inspect call
+              const hoverRange = new Range(
+                new Position(position.line, inspectStart),
+                new Position(position.line, Math.min(lineText.length, inspectEnd + 20))
+              );
+              
+              return new Hover(markdown, hoverRange);
+            }
+          }
+        } catch (error) {
+          outputChannel?.appendLine(`[ERROR] Type inspection hover error: ${error}`);
+          // Don't show error to user, just return undefined
+        } finally {
+          updateStatusBar('idle');
+        }
+        
+        return undefined;
+      }
+    })
   );
 
   // Format on save if configured
@@ -2080,4 +2287,46 @@ function findMagoBinary(workspaceRoot: string): string | null {
     return vendorPath;
   }
   return null;
+}
+
+// Wrap selection with \Mago\inspect() and show type information
+async function wrapWithInspect(
+  document: TextDocument,
+  selection: Range
+): Promise<void> {
+  try {
+    const edit = new WorkspaceEdit();
+    const selectedText = document.getText(selection);
+    const trimmedSelection = selectedText.trim();
+    
+    // Get the line where selection ends and insert on a new line after it
+    const endLine = selection.end.line;
+    const endLineText = document.lineAt(endLine);
+    const endLineIndent = endLineText.text.match(/^\s*/)?.[0] || '';
+    
+    // Insert the inspect call on a new line after the selection's end line
+    // This prevents breaking syntax when selection is in the middle of an expression
+    const insertLine = endLine + 1;
+    const insertPosition = new Position(insertLine, 0);
+    
+    // Use the full selected expression in the inspect call
+    const inspectCall = `${endLineIndent}\\Mago\\inspect(${trimmedSelection});\n`;
+    
+    edit.insert(document.uri, insertPosition, inspectCall);
+    const applied = await workspace.applyEdit(edit);
+    
+    if (!applied) {
+      window.showWarningMessage('Mago: Failed to insert inspect call.');
+      return;
+    }
+    
+    // Show success message
+    window.showInformationMessage('Mago: Added \\Mago\\inspect() call. Hover over it to see type information.');
+  } catch (error) {
+    window.showErrorMessage(`Mago: Failed to wrap with inspect - ${error}`);
+    outputChannel?.appendLine(`[ERROR] Wrap with inspect error: ${error}`);
+    if (error instanceof Error) {
+      outputChannel?.appendLine(`[ERROR] Stack: ${error.stack}`);
+    }
+  }
 }
