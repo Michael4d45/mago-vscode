@@ -334,8 +334,7 @@ export function activate(context: ExtensionContext) {
       }
 
       try {
-        const workspaceFolder = workspace.workspaceFolders?.[0];
-        const workspaceRoot = workspaceFolder?.uri.fsPath || process.cwd();
+        const workspaceRoot = getMagoWorkspaceRoot();
 
         // Use stdin-input for formatting the document
         const formattedText = await runFormatCommandStdin(document.getText(), workspaceRoot);
@@ -424,13 +423,10 @@ export function activate(context: ExtensionContext) {
         try {
           updateStatusBar('running');
           const config = workspace.getConfiguration('mago');
-          const workspaceFolder = workspace.workspaceFolders?.[0];
-          const workspaceRoot = workspaceFolder?.uri.fsPath || process.cwd();
+          const workspaceRoot = getMagoWorkspaceRoot();
           
-          // Use relative path format like ./test.php
           const filePath = document.uri.fsPath;
-          const relativePath = path.relative(workspaceRoot, filePath);
-          const analyzeFile = relativePath.startsWith('..') ? filePath : `./${relativePath}`;
+          const analyzeFile = toMagoPath(filePath);
           
           // Run analyze with --retain-code=type-inspection
           const analyzeArgs = ['analyze', '--retain-code=type-inspection', '--reporting-format', 'json', analyzeFile];
@@ -628,12 +624,11 @@ async function scanFile(document: TextDocument): Promise<void> {
         const lintArgs = ['lint', '--reporting-format', 'json'];
         if (useBaselines) {
           const lintBaseline = config.get<string>('lintBaseline', 'lint-baseline.toml');
-          const workspaceFolder = workspace.workspaceFolders?.[0];
-          const workspaceRoot = workspaceFolder?.uri.fsPath || process.cwd();
+          const workspaceRoot = getMagoWorkspaceRoot();
           const baselinePath = resolvePath(lintBaseline, workspaceRoot);
           lintArgs.push('--baseline', baselinePath);
         }
-        lintArgs.push(document.uri.fsPath);
+        lintArgs.push(toMagoPath(document.uri.fsPath));
         const lintResult = await runMago(lintArgs);
         if (lintResult && lintResult.issues) {
           // Tag issues with category
@@ -651,12 +646,11 @@ async function scanFile(document: TextDocument): Promise<void> {
         const analyzeArgs = ['analyze', '--reporting-format', 'json'];
         if (useBaselines) {
           const analysisBaseline = config.get<string>('analysisBaseline', 'analysis-baseline.toml');
-          const workspaceFolder = workspace.workspaceFolders?.[0];
-          const workspaceRoot = workspaceFolder?.uri.fsPath || process.cwd();
+          const workspaceRoot = getMagoWorkspaceRoot();
           const baselinePath = resolvePath(analysisBaseline, workspaceRoot);
           analyzeArgs.push('--baseline', baselinePath);
         }
-        analyzeArgs.push(document.uri.fsPath);
+        analyzeArgs.push(toMagoPath(document.uri.fsPath));
         const analyzeResult = await runMago(analyzeArgs);
         if (analyzeResult && analyzeResult.issues) {
           // Tag issues with category
@@ -674,12 +668,11 @@ async function scanFile(document: TextDocument): Promise<void> {
         const guardArgs = ['guard', '--reporting-format', 'json'];
         if (useBaselines) {
           const guardBaseline = config.get<string>('guardBaseline', 'guard-baseline.toml');
-          const workspaceFolder = workspace.workspaceFolders?.[0];
-          const workspaceRoot = workspaceFolder?.uri.fsPath || process.cwd();
+          const workspaceRoot = getMagoWorkspaceRoot();
           const baselinePath = resolvePath(guardBaseline, workspaceRoot);
           guardArgs.push('--baseline', baselinePath);
         }
-        guardArgs.push(document.uri.fsPath);
+        guardArgs.push(toMagoPath(document.uri.fsPath));
         const guardResult = await runMago(guardArgs);
         if (guardResult && guardResult.issues) {
           // Tag issues with category
@@ -730,7 +723,7 @@ async function scanProject(): Promise<void> {
         const lintArgs = ['lint', '--reporting-format', 'json'];
         if (useBaselines) {
           const lintBaseline = config.get<string>('lintBaseline', 'lint-baseline.toml');
-          const workspaceRoot = workspaceFolder.uri.fsPath;
+          const workspaceRoot = getMagoWorkspaceRoot();
           const baselinePath = resolvePath(lintBaseline, workspaceRoot);
           lintArgs.push('--baseline', baselinePath);
         }
@@ -751,7 +744,7 @@ async function scanProject(): Promise<void> {
         const analyzeArgs = ['analyze', '--reporting-format', 'json'];
         if (useBaselines) {
           const analysisBaseline = config.get<string>('analysisBaseline', 'analysis-baseline.toml');
-          const workspaceRoot = workspaceFolder.uri.fsPath;
+          const workspaceRoot = getMagoWorkspaceRoot();
           const baselinePath = resolvePath(analysisBaseline, workspaceRoot);
           analyzeArgs.push('--baseline', baselinePath);
         }
@@ -772,7 +765,7 @@ async function scanProject(): Promise<void> {
         const guardArgs = ['guard', '--reporting-format', 'json'];
         if (useBaselines) {
           const guardBaseline = config.get<string>('guardBaseline', 'guard-baseline.toml');
-          const workspaceRoot = workspaceFolder.uri.fsPath;
+          const workspaceRoot = getMagoWorkspaceRoot();
           const baselinePath = resolvePath(guardBaseline, workspaceRoot);
           guardArgs.push('--baseline', baselinePath);
         }
@@ -813,7 +806,7 @@ async function lintFix(safetyLevel: 'safe' | 'unsafe' | 'potentially-unsafe'): P
 
   try {
     const config = workspace.getConfiguration('mago');
-    const workspaceRoot = workspaceFolder.uri.fsPath;
+    const workspaceRoot = getMagoWorkspaceRoot();
 
     // Build lint args
     const lintArgs = ['lint', '--fix'];
@@ -884,8 +877,7 @@ async function lintFixFile(document: TextDocument, safetyLevel: 'safe' | 'unsafe
 
   try {
     const config = workspace.getConfiguration('mago');
-    const workspaceFolder = workspace.workspaceFolders?.[0];
-    const workspaceRoot = workspaceFolder?.uri.fsPath || process.cwd();
+    const workspaceRoot = getMagoWorkspaceRoot();
 
     // Build lint args
     const lintArgs = ['lint', '--fix'];
@@ -896,7 +888,7 @@ async function lintFixFile(document: TextDocument, safetyLevel: 'safe' | 'unsafe
     }
 
     // Add the specific file path
-    lintArgs.push(document.uri.fsPath);
+    lintArgs.push(toMagoPath(document.uri.fsPath));
 
     // Add format after fix if enabled
     const formatAfterFix = config.get<boolean>('formatAfterLintFix', true);
@@ -957,12 +949,43 @@ function resolvePath(path: string, workspaceRoot: string): string {
     .replace(/\${env:([^}]+)}/g, (_, varName) => process.env[varName] || '');
 }
 
+function getMagoWorkspaceRoot(): string {
+  const config = workspace.getConfiguration('mago');
+  const workspaceFolder = workspace.workspaceFolders?.[0];
+  const basePath = workspaceFolder?.uri.fsPath || process.cwd();
+  const configuredWorkspace = config.get<string>('workspace');
+  if (configuredWorkspace && configuredWorkspace.trim()) {
+    const resolved = resolvePath(configuredWorkspace.trim(), basePath);
+    return path.resolve(basePath, resolved);
+  }
+  return basePath;
+}
+
+/** Host filesystem path for spawn cwd. Use this when spawning processes that run on the host (e.g. docker); getMagoWorkspaceRoot() may be a container path like /var/www that doesn't exist on the host. */
+function getSpawnCwd(): string {
+  const workspaceFolder = workspace.workspaceFolders?.[0];
+  return workspaceFolder?.uri.fsPath || process.cwd();
+}
+
+/** Convert a host path to the path Mago expects. When mago.workspace is set (e.g. /var/www for Docker), host paths must be converted so Mago can find files inside the container. */
+function toMagoPath(hostPath: string): string {
+  const hostRoot = getSpawnCwd();
+  const magoRoot = getMagoWorkspaceRoot();
+  if (hostRoot === magoRoot) {
+    return hostPath;
+  }
+  const rel = path.relative(hostRoot, hostPath);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) {
+    return hostPath;
+  }
+  return path.join(magoRoot, rel);
+}
+
 async function runMago(args: string[]): Promise<MagoResult | null> {
   const config = workspace.getConfiguration('mago');
   let binPath = config.get<string>('binPath', 'mago');
   const binCommand = config.get<string[]>('binCommand');
-  const workspaceFolder = workspace.workspaceFolders?.[0];
-  const workspaceRoot = workspaceFolder?.uri.fsPath || process.cwd();
+  const workspaceRoot = getMagoWorkspaceRoot();
 
   // Auto-discover Mago binary if binPath is blank, empty, or default "mago"
   if (!binCommand || binCommand.length === 0 || !binCommand[0]) {
@@ -1054,7 +1077,7 @@ async function runMago(args: string[]): Promise<MagoResult | null> {
     outputChannel?.appendLine(`[INFO] Running Mago: ${fullCommand}`);
     outputChannel?.appendLine(`[INFO] Working directory: ${workspaceRoot}`);
     const proc = spawn(executable, fullArgs, {
-      cwd: workspaceRoot,
+      cwd: getSpawnCwd(),
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
@@ -1278,7 +1301,7 @@ async function generateBaseline(type: 'lint' | 'analyze' | 'guard'): Promise<voi
 
   try {
     const config = workspace.getConfiguration('mago');
-    const workspaceRoot = workspaceFolder.uri.fsPath;
+    const workspaceRoot = getMagoWorkspaceRoot();
     let binPath = config.get<string>('binPath', 'mago');
     const binCommand = config.get<string[]>('binCommand');
 
@@ -1365,7 +1388,7 @@ async function generateBaseline(type: 'lint' | 'analyze' | 'guard'): Promise<voi
     // Run the command (baseline generation doesn't return JSON)
     await new Promise<void>((resolve, reject) => {
       const proc = spawn(executable, fullArgs, {
-        cwd: workspaceRoot,
+        cwd: getSpawnCwd(),
         stdio: ['ignore', 'pipe', 'pipe'],
       });
 
@@ -1431,10 +1454,9 @@ async function formatFile(filePath: string): Promise<void> {
       return;
     }
 
-    const workspaceFolder = workspace.workspaceFolders?.[0];
-    const workspaceRoot = workspaceFolder?.uri.fsPath || process.cwd();
+    const workspaceRoot = getMagoWorkspaceRoot();
 
-    await runFormatCommand([filePath], workspaceRoot);
+    await runFormatCommand([toMagoPath(filePath)], workspaceRoot);
     
     window.showInformationMessage(`Mago: Formatted ${filePath}`);
   } catch (error) {
@@ -1463,8 +1485,7 @@ async function formatDocument(document: TextDocument): Promise<void> {
       return;
     }
 
-    const workspaceFolder = workspace.workspaceFolders?.[0];
-    const workspaceRoot = workspaceFolder?.uri.fsPath || process.cwd();
+    const workspaceRoot = getMagoWorkspaceRoot();
 
     // Use stdin-input for formatting the document
     const formattedText = await runFormatCommandStdin(document.getText(), workspaceRoot);
@@ -1542,7 +1563,7 @@ async function formatStaged(): Promise<void> {
       return;
     }
 
-    const workspaceRoot = workspaceFolder.uri.fsPath;
+    const workspaceRoot = getMagoWorkspaceRoot();
 
     // Use --staged flag to format staged git files
     await runFormatCommand(['--staged'], workspaceRoot);
@@ -1625,14 +1646,14 @@ async function runFormatCommand(paths: string[], workspaceRoot: string): Promise
   outputChannel?.appendLine(`[INFO] Working directory: ${workspaceRoot}`);
 
   // Run the format command
-  await new Promise<void>((resolve, reject) => {
-    const proc = spawn(executable, fullArgs, {
-      cwd: workspaceRoot,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    await new Promise<void>((resolve, reject) => {
+      const proc = spawn(executable, fullArgs, {
+        cwd: getSpawnCwd(),
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
 
-    let stdout = '';
-    let stderr = '';
+      let stdout = '';
+      let stderr = '';
 
     proc.stdout.on('data', (data) => {
       stdout += data.toString();
@@ -1724,7 +1745,12 @@ async function runFormatCommandStdin(input: string, workspaceRoot: string): Prom
 
   // Build full command: [executable] [top-level-args] format --stdin-input
   const subcommandArgs = ['format', '--stdin-input'];
-  const fullArgs = [...execCommand.slice(1), ...topLevelArgs, ...subcommandArgs];
+  // docker exec needs -i to receive piped stdin; without it the process gets no input
+  let execArgs = execCommand.slice(1);
+  if (execArgs[0] === 'exec') {
+    execArgs = ['exec', '-i', ...execArgs.slice(1)];
+  }
+  const fullArgs = [...execArgs, ...topLevelArgs, ...subcommandArgs];
 
   const fullCommand = [executable, ...fullArgs].join(' ');
   outputChannel?.appendLine(`[INFO] Running Mago: ${fullCommand}`);
@@ -1733,7 +1759,7 @@ async function runFormatCommandStdin(input: string, workspaceRoot: string): Prom
   // Run the format command with stdin input
   return new Promise<string>((resolve, reject) => {
     const proc = spawn(executable, fullArgs, {
-      cwd: workspaceRoot,
+      cwd: getSpawnCwd(),
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
@@ -1923,27 +1949,25 @@ class MagoCodeActionProvider implements CodeActionProvider {
       actions.push(expectAction);
 
       // Add "Disable rule in config" action (only if mago.toml exists)
-      const workspaceFolder = workspace.workspaceFolders?.[0];
-      if (workspaceFolder) {
-        const configPath = path.join(workspaceFolder.uri.fsPath, 'mago.toml');
-        try {
-          // Check if mago.toml exists synchronously (this is okay for a quick check in UI code)
-          if (fs.existsSync(configPath)) {
-            const disableAction = new CodeAction(
-              `Disable rule in config: ${issue.code}`,
-              CodeActionKind.QuickFix
-            );
-            disableAction.diagnostics = [diagnostic];
-            disableAction.command = {
-              command: 'mago.disableRule',
-              title: 'Disable rule in mago.toml',
-              arguments: [issue.category || 'lint', issue.code],
-            };
-            actions.push(disableAction);
-          }
-        } catch {
-          // If we can't check the file, don't show the action
+      const magoRoot = getMagoWorkspaceRoot();
+      const configPath = path.join(magoRoot, 'mago.toml');
+      try {
+        // Check if mago.toml exists synchronously (this is okay for a quick check in UI code)
+        if (fs.existsSync(configPath)) {
+          const disableAction = new CodeAction(
+            `Disable rule in config: ${issue.code}`,
+            CodeActionKind.QuickFix
+          );
+          disableAction.diagnostics = [diagnostic];
+          disableAction.command = {
+            command: 'mago.disableRule',
+            title: 'Disable rule in mago.toml',
+            arguments: [issue.category || 'lint', issue.code],
+          };
+          actions.push(disableAction);
         }
+      } catch {
+        // If we can't check the file, don't show the action
       }
     }
 
@@ -2184,13 +2208,8 @@ async function addFormatIgnoreRegion(
 // Disable rule in mago.toml configuration
 async function disableRuleInConfig(category: string, ruleCode: string): Promise<void> {
   try {
-    const workspaceFolder = workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) {
-      window.showWarningMessage('Mago: No workspace folder open.');
-      return;
-    }
-
-    const configPath = path.join(workspaceFolder.uri.fsPath, 'mago.toml');
+    const workspaceRoot = getMagoWorkspaceRoot();
+    const configPath = path.join(workspaceRoot, 'mago.toml');
     const configUri = Uri.file(configPath);
 
     // Check if mago.toml exists
