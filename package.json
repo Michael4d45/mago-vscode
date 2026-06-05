@@ -2,7 +2,7 @@
   "name": "mago-vscode",
   "displayName": "Mago",
   "description": "Mago - PHP formatter, linter, and analyzer. Integrates Mago into VS Code for seamless PHP development.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "publisher": "Michael4d45",
   "license": "MIT",
   "repository": {
