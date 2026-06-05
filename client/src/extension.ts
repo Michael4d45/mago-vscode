@@ -337,7 +337,7 @@ export function activate(context: ExtensionContext) {
         const workspaceRoot = getMagoWorkspaceRoot();
 
         // Use stdin-input for formatting the document
-        const formattedText = await runFormatCommandStdin(document.getText(), workspaceRoot);
+        const formattedText = await runFormatCommandStdin(document.getText(), workspaceRoot, document.uri.fsPath);
         
         if (formattedText !== document.getText()) {
           const fullRange = new Range(
@@ -1488,7 +1488,7 @@ async function formatDocument(document: TextDocument): Promise<void> {
     const workspaceRoot = getMagoWorkspaceRoot();
 
     // Use stdin-input for formatting the document
-    const formattedText = await runFormatCommandStdin(document.getText(), workspaceRoot);
+    const formattedText = await runFormatCommandStdin(document.getText(), workspaceRoot, document.uri.fsPath);
     
     if (formattedText !== document.getText()) {
       const edit = new WorkspaceEdit();
@@ -1686,7 +1686,7 @@ async function runFormatCommand(paths: string[], workspaceRoot: string): Promise
   });
 }
 
-async function runFormatCommandStdin(input: string, workspaceRoot: string): Promise<string> {
+async function runFormatCommandStdin(input: string, workspaceRoot: string, filePath?: string): Promise<string> {
   const config = workspace.getConfiguration('mago');
   let binPath = config.get<string>('binPath', 'mago');
   const binCommand = config.get<string[]>('binCommand');
@@ -1743,8 +1743,11 @@ async function runFormatCommandStdin(input: string, workspaceRoot: string): Prom
     topLevelArgs.push('--threads', threads.toString());
   }
 
-  // Build full command: [executable] [top-level-args] format --stdin-input
+  // Build full command: [executable] [top-level-args] format --stdin-input [--stdin-filepath]
   const subcommandArgs = ['format', '--stdin-input'];
+  if (filePath) {
+    subcommandArgs.push('--stdin-filepath', toMagoPath(filePath));
+  }
   // docker exec needs -i to receive piped stdin; without it the process gets no input
   let execArgs = execCommand.slice(1);
   if (execArgs[0] === 'exec') {

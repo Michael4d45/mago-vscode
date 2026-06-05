@@ -249,6 +249,13 @@ To automatically format PHP files when you save them:
 }
 ```
 
+Excluded paths from `mago.toml` are respected when formatting from the editor (format on save and the default formatter). Use `[formatter].excludes` for formatter-specific patterns, or `[source].excludes` to exclude files from all Mago tools:
+
+```toml
+[formatter]
+excludes = ["templates/**/*.php"]
+```
+
 #### Format After Lint Fixes
 
 To automatically format files after applying lint fixes:
